@@ -6,3 +6,4 @@ Reference/API
 
 .. automodapi:: libra
 
+.. automodapi:: libra.starspots

@@ -65,8 +65,8 @@ generate_version_py(PACKAGENAME, VERSION, RELEASE,
                     get_debug_option(PACKAGENAME))
 
 # Treat everything in notebooks except README.rst as a script to be installed
-scripts = [fname for fname in glob.glob(os.path.join('notebooks', '*'))
-           if os.path.basename(fname) != 'README.rst']
+#scripts = [fname for fname in glob.glob(os.path.join('notebooks', '*'))
+#           if os.path.basename(fname) != 'README.rst']
 
 
 # Get configuration information from all of the various subpackages.
@@ -76,7 +76,7 @@ package_info = get_package_info()
 
 # Add the project-global data
 package_info['package_data'].setdefault(PACKAGENAME, [])
-package_info['package_data'][PACKAGENAME].append('data/*')
+package_info['package_data'][PACKAGENAME].append('libra/data/*')
 
 # Define entry points for command-line notebooks
 entry_points = {'console_scripts': []}
@@ -105,7 +105,6 @@ package_info['package_data'][PACKAGENAME].extend(c_files)
 setup(name=PACKAGENAME,
       version=VERSION,
       description=DESCRIPTION,
-      scripts=scripts,
       install_requires=['astropy', 'numpy', 'scipy', 'matplotlib',
                         'batman-package'],
       author=AUTHOR,
