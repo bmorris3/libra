@@ -1,2 +1,4 @@
 # libra
-Weighing planets, with light.
+
+[![](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/)
+Weighing planets with light.
