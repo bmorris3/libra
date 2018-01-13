@@ -64,8 +64,8 @@ cmdclassd = register_commands(PACKAGENAME, VERSION, RELEASE)
 generate_version_py(PACKAGENAME, VERSION, RELEASE,
                     get_debug_option(PACKAGENAME))
 
-# Treat everything in scripts except README.rst as a script to be installed
-scripts = [fname for fname in glob.glob(os.path.join('scripts', '*'))
+# Treat everything in notebooks except README.rst as a script to be installed
+scripts = [fname for fname in glob.glob(os.path.join('notebooks', '*'))
            if os.path.basename(fname) != 'README.rst']
 
 
@@ -78,7 +78,7 @@ package_info = get_package_info()
 package_info['package_data'].setdefault(PACKAGENAME, [])
 package_info['package_data'][PACKAGENAME].append('data/*')
 
-# Define entry points for command-line scripts
+# Define entry points for command-line notebooks
 entry_points = {'console_scripts': []}
 
 entry_point_list = conf.items('entry_points')
