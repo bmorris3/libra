@@ -128,11 +128,14 @@ def latlon_to_cartesian(latitude, longitude, stellar_inclination):
         longitude *= u.deg
         latitude *= u.deg
 
+    if not hasattr(stellar_inclination, 'unit'):
+        stellar_inclination *= u.deg
+
     c = UnitSphericalRepresentation(longitude, latitude)
     cartesian = c.to_cartesian()
 
     rotate_about_z = rotation_matrix(90*u.deg, axis='z')
-    rotate_is = rotation_matrix(stellar_inclination*u.deg, axis='y')
+    rotate_is = rotation_matrix(stellar_inclination, axis='y')
     transform_matrix = matrix_product(rotate_about_z, rotate_is)
     cartesian = cartesian.transform(transform_matrix)
     return cartesian
@@ -143,7 +146,8 @@ class Star(object):
     Object defining a star.
     """
     def __init__(self, spots=None, u1=0.4987, u2=0.1772, r=1,
-                 radius_threshold=0.1, inclination=None):
+                 radius_threshold=0.1, inclination=None,
+                 rotation_period=25*u.day):
         """
         Parameters
         ----------
@@ -161,6 +165,8 @@ class Star(object):
             List of spots on this star.
         inclination : `~astropy.units.Quantity`
             Stellar inclination. Default is 90 deg.
+        rotation_period : `~astropy.units.Quantity`
+            Stellar rotation period [default = 25 d].
         """
         if spots is None:
             spots = []
@@ -178,6 +184,7 @@ class Star(object):
         self._inclination = inclination
         self.radius_threshold = radius_threshold
         self.rotations_applied = 0 * u.deg
+        self.rotation_period = rotation_period
 
     @property
     def inclination(self):
@@ -196,7 +203,7 @@ class Star(object):
             spot.z = cartesian.z.value
         self._inclination = new_inclination
 
-    def plot(self, n=3000, ax=None, col=True, col_exaggerate=1):
+    def plot(self, n=3000, ax=None):
         """
         Plot a 2D projected schematic of the star and its spots.
 
@@ -204,10 +211,6 @@ class Star(object):
         ----------
         ax : `~matplotlib.pyplot.Axes`
             Axis object to draw the plot on
-        col : bool (optional)
-            Show the center of light with a red "x" if `True`
-        col_exaggerate : float (optional)
-            Exaggerate the center-of-light coordinate by this factor
         n : int
             Number of pixels per side in the image.
 
@@ -219,25 +222,68 @@ class Star(object):
         if ax is None:
             ax = plt.gca()
 
-        _, _, image = self._centroid_numerical(n=n, return_image=True)
+        image = self._compute_image(n=n)
 
         ax.imshow(image, origin='lower', interpolation='nearest',
                   cmap=plt.cm.Greys_r, extent=[-1, 1, -1, 1])
         ax.set_aspect('equal')
-        if col:
-            x_col, y_col = self.center_of_light
 
-            ax.scatter([x_col*col_exaggerate], [y_col*col_exaggerate],
-                       color='r', marker='x', zorder=100)
         ax.set_xlim([-1, 1])
         ax.set_ylim([-1, 1])
         ax.set_xlabel('x [$R_\star$]', fontsize=14)
         ax.set_ylabel('y [$R_\star$]', fontsize=14)
         return ax
 
-    def flux(self):
+    def _instantaneous_flux(self):
+        # Morris et al 2018, Eqn 1
+        total_flux = (2 * np.pi *
+                      quad(lambda r: r * self.limb_darkening_normed(r),
+                           0, self.r)[0])
+
+        for spot in self.spots:
+            if spot.z > 0:
+                # Morris et al 2018, Eqn 2
+                r_spot = np.sqrt(spot.x**2 + spot.y**2)
+                spot_area = np.pi * spot.r**2 * np.sqrt(1 - (r_spot/self.r)**2)
+                spot_flux = (-1 * spot_area * self.limb_darkening_normed(r_spot) *
+                             (1 - spot.contrast))
+                total_flux += spot_flux
+        return total_flux
+
+    def flux(self, times=None, t0=0):
         """
-        Compute the stellar centroid using an analytic approximation.
+        Compute flux at ``times`` as the star rotates.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        """
+        if times is None:
+            return self._instantaneous_flux()
+
+        fluxes = np.zeros(len(times))
+        for i, t in enumerate(times):
+
+            p_rot_d = self.rotation_period.to(u.d).value
+            rotational_phase = (((t - t0) % p_rot_d) / p_rot_d) * 2*np.pi*u.rad
+
+            self.rotate(rotational_phase)
+            fluxes[i] = self._instantaneous_flux()
+
+        self.derotate()
+    
+        return fluxes
+
+    def _compute_image(self, n=3000, delete_arrays_after_use=True):
+        """
+        Compute the stellar centroid using a numerical approximation.
+
+        Parameters
+        ----------
+        n : int
+            Generate a simulated image of the star with ``n`` by ``n`` pixels.
 
         Returns
         -------
@@ -245,92 +291,44 @@ class Star(object):
             Photocenter in the x dimension, in units of stellar radii
         y_centroid : float
             Photocenter in the y dimension, in units of stellar radii
-        return_total_flux : bool
-            If true, return the X centroid, Y centroid, and the total stellar
-            flux.
         """
-        x_centroid = 0
-        y_centroid = 0
+        image = np.zeros((n, n))
+        x = np.linspace(-self.r, self.r, n)
+        y = np.linspace(-self.r, self.r, n)
+        x, y = np.meshgrid(x, y)
 
-        # Morris et al 2017, Eqn 1
-        total_flux = (2 * np.pi *
-                      quad(lambda r: r * self.limb_darkening_normed(r),
-                           0, self.r)[0])
+        # Limb darkening
+        irradiance = self.limb_darkening_normed(np.sqrt(x**2 + y**2))
+
+        on_star = x**2 + y**2 <= self.r**2
+
+        image[on_star] = irradiance[on_star]
+        on_spot = None
 
         for spot in self.spots:
             if spot.z > 0:
-                # Morris et al 2017, Eqn 2
                 r_spot = np.sqrt(spot.x**2 + spot.y**2)
-                spot_area = np.pi * spot.r**2 * np.sqrt(1 - (r_spot/self.r)**2)
-                spot_flux = (-1 * spot_area * self.limb_darkening_normed(r_spot) *
-                             (1 - spot.contrast))
-                total_flux += spot_flux
+                foreshorten_semiminor_axis = np.sqrt(1 - (r_spot/self.r)**2)
 
-        return total_flux
+                a = spot.r  # Semi-major axis
+                b = spot.r * foreshorten_semiminor_axis  # Semi-minor axis
+                A = np.pi/2 + np.arctan2(spot.y, spot.x)  # Semi-major axis rotation
+                on_spot = (((x - spot.x) * np.cos(A) +
+                            (y - spot.y) * np.sin(A))**2 / a**2 +
+                           ((x - spot.x) * np.sin(A) -
+                            (y - spot.y) * np.cos(A))**2 / b**2 <= self.r**2)
 
-    # def _centroid_numerical(self, n=3000, delete_arrays_after_use=True,
-    #                         return_image=False):
-    #     """
-    #     Compute the stellar centroid using a numerical approximation.
-    #
-    #     Parameters
-    #     ----------
-    #     n : int
-    #         Generate a simulated image of the star with ``n`` by ``n`` pixels.
-    #
-    #     Returns
-    #     -------
-    #     x_centroid : float
-    #         Photocenter in the x dimension, in units of stellar radii
-    #     y_centroid : float
-    #         Photocenter in the y dimension, in units of stellar radii
-    #     """
-    #     image = np.zeros((n, n))
-    #     x = np.linspace(-self.r, self.r, n)
-    #     y = np.linspace(-self.r, self.r, n)
-    #     x, y = np.meshgrid(x, y)
-    #
-    #     # Limb darkening
-    #     irradiance = self.limb_darkening_normed(np.sqrt(x**2 + y**2))
-    #
-    #     on_star = x**2 + y**2 <= self.r**2
-    #
-    #     image[on_star] = irradiance[on_star]
-    #     on_spot = None
-    #
-    #     for spot in self.spots:
-    #         if spot.z > 0:
-    #             r_spot = np.sqrt(spot.x**2 + spot.y**2)
-    #             foreshorten_semiminor_axis = np.sqrt(1 - (r_spot/self.r)**2)
-    #
-    #             a = spot.r  # Semi-major axis
-    #             b = spot.r * foreshorten_semiminor_axis  # Semi-minor axis
-    #             A = np.pi/2 + np.arctan2(spot.y, spot.x)  # Semi-major axis rotation
-    #             on_spot = (((x - spot.x) * np.cos(A) +
-    #                         (y - spot.y) * np.sin(A))**2 / a**2 +
-    #                        ((x - spot.x) * np.sin(A) -
-    #                         (y - spot.y) * np.cos(A))**2 / b**2 <= self.r**2)
-    #
-    #             image[on_spot & on_star] *= spot.contrast
-    #
-    #     x_centroid = np.sum(image * x)/np.sum(image)
-    #     y_centroid = np.sum(image * y)/np.sum(image)
-    #
-    #     if delete_arrays_after_use:
-    #         del on_star
-    #         if on_spot is not None:
-    #             del on_spot
-    #         del x
-    #         del y
-    #         del irradiance
-    #
-    #     if return_image:
-    #         return x_centroid, y_centroid, image
-    #
-    #     if delete_arrays_after_use:
-    #         del image
-    #
-    #     return x_centroid, y_centroid
+                image[on_spot & on_star] *= spot.contrast
+
+        if delete_arrays_after_use:
+            del on_star
+            if on_spot is not None:
+                del on_spot
+            del x
+            del y
+            del irradiance
+
+        return image
 
     def limb_darkening(self, r):
         """
