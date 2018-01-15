@@ -3,3 +3,4 @@ scipy
 matplotlib
 astropy
 sphinx-automodapi
+h5py
