@@ -14,5 +14,4 @@ from ._astropy_init import *
 if not _ASTROPY_SETUP_:
     from .starspots import *
     from .systems import *
-    from .templates import *
-    from .phoenix import *
+    from .spectra import *

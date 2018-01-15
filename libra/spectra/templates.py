@@ -6,9 +6,10 @@ import h5py
 import os
 import astropy.units as u
 from .spectrum import Spectrum1D
+
 __all__ = ['IRTFTemplate']
 
-hdf5_archive_path = os.path.join(os.path.dirname(__file__), 'data',
+hdf5_archive_path = os.path.join(os.path.dirname(__file__), os.pardir, 'data',
                                  'irtf_templates.hdf5')
 
 
