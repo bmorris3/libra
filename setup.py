@@ -76,7 +76,7 @@ package_info = get_package_info()
 
 # Add the project-global data
 package_info['package_data'].setdefault(PACKAGENAME, [])
-package_info['package_data'][PACKAGENAME].append('libra/data/*')
+package_info['package_data'][PACKAGENAME].append('data/*')
 
 # Define entry points for command-line notebooks
 entry_points = {'console_scripts': []}

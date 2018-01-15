@@ -1,7 +1,6 @@
 import os
 from astropy.io import fits
 import astropy.units as u
-from scipy.interpolate import interp1d
 
 from .spectrum import Spectrum1D
 
