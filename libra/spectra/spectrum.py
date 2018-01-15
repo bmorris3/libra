@@ -8,6 +8,7 @@ __all__ = ['Spectrum1D', 'NIRSpecSpectrum2D']
 bg_path = os.path.join(os.path.dirname(__file__), os.pardir, 'data', 'etc',
                        'image_detector.fits')
 
+
 class Spectrum1D(object):
     def __init__(self, wavelength, flux, error=None, header=None):
         self.wavelength = wavelength

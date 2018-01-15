@@ -78,6 +78,8 @@ package_info = get_package_info()
 package_info['package_data'].setdefault(PACKAGENAME, [])
 package_info['package_data'][PACKAGENAME].append('data/*')
 package_info['package_data'][PACKAGENAME].append('data/etc/*')
+package_info['package_data'][PACKAGENAME].append('data/phoenix/*')
+package_info['package_data'][PACKAGENAME].append('data/etc/*')
 
 # Define entry points for command-line notebooks
 entry_points = {'console_scripts': []}
