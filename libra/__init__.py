@@ -15,3 +15,4 @@ if not _ASTROPY_SETUP_:
     from .starspots import *
     from .systems import *
     from .spectra import *
+    from .etc import *
