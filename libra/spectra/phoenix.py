@@ -1,6 +1,7 @@
 import os
 from astropy.io import fits
 import astropy.units as u
+import numpy as np
 
 from .spectrum import Spectrum1D
 
@@ -30,5 +31,9 @@ class PHOENIXModel(Spectrum1D):
         path = spt_to_path[sptype.lower()]
         f = fits.getdata(path)
 
-        self.wavelength = (f['Wavelength'] * u.Angstrom).to(u.um)
+        self.wavelength = f['Wavelength'] * u.um
         self.flux = f['Flux']
+
+        # remove nans
+        self.wavelength = self.wavelength[~np.isnan(self.flux)]
+        self.flux = self.flux[~np.isnan(self.flux)]
