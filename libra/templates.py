@@ -2,10 +2,10 @@
 This submodule taken from: https://github.com/bmorris3/irtf_templates
 """
 
-import matplotlib.pyplot as plt
 import h5py
 import os
-
+import astropy.units as u
+from .spectrum import Spectrum1D
 __all__ = ['IRTFTemplate']
 
 hdf5_archive_path = os.path.join(os.path.dirname(__file__), 'data',
@@ -23,28 +23,19 @@ class TemplateArchive(object):
 archive = TemplateArchive()
 
 
-class IRTFTemplate(object):
+class IRTFTemplate(Spectrum1D):
     def __init__(self, sptype):
         """
         Parameters
         ----------
         sptype : str
-            Spectral type of target
+            Spectral type of target.
         """
         with archive.hdf5 as f:
             data = f['templates'][sptype][:]
             header = {k: v for k, v in f['templates'][sptype].attrs.items()}
 
-        self.wavelength = data[:, 0]
-        self.flux = data[:, 1]
+        self.wavelength = data[:, 0] * u.um
+        self.flux = data[:, 1]  # * u.W * u.m**-2 * u.um**-1
         self.error = data[:, 2]
         self.header = header
-
-    def plot(self, ax=None):
-        if ax is None:
-            ax = plt.gca()
-
-        ax.plot(self.wavelength, self.flux)
-
-        return ax
-

@@ -11,3 +11,7 @@ IRTF Spectra:
 
 * Cushing, M.C., Rayner, J.T, & Vacca, W.D. (2005, ApJ, 623, 1115) 
 * Rayner, J.T., Cushing, M.C., & Vacca, W.D. (2009, ApJS, 185, 289) 
+
+PHOENIX models: 
+
+* Baraffe et al. 2015, Allard et al. 2015
