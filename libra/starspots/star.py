@@ -46,7 +46,8 @@ class Spot(object):
         self.contrast = contrast
 
     @classmethod
-    def from_latlon(cls, latitude, longitude, stellar_inclination, radius):
+    def from_latlon(cls, latitude, longitude, stellar_inclination, radius,
+                    contrast=0.7):
         """
         Construct a spot from latitude, longitude coordinates
 
@@ -67,7 +68,7 @@ class Spot(object):
                                         stellar_inclination)
 
         return cls(x=cartesian.x.value, y=cartesian.y.value,
-                   z=cartesian.z.value, r=radius)
+                   z=cartesian.z.value, r=radius, contrast=contrast)
 
     @classmethod
     def from_sunspot_distribution(cls, stellar_inclination, mean_latitude=15,
@@ -264,16 +265,18 @@ class Star(object):
             return self._instantaneous_flux()
 
         fluxes = np.zeros(len(times))
+        prev_rot = 0 * u.rad
         for i, t in enumerate(times):
 
             p_rot_d = self.rotation_period.to(u.d).value
             rotational_phase = (((t - t0) % p_rot_d) / p_rot_d) * 2*np.pi*u.rad
 
-            self.rotate(rotational_phase)
+            self.rotate(rotational_phase - prev_rot)
             fluxes[i] = self._instantaneous_flux()
+            prev_rot = rotational_phase
 
         self.derotate()
-    
+
         return fluxes
 
     def _compute_image(self, n=3000, delete_arrays_after_use=True):
