@@ -16,3 +16,4 @@ if not _ASTROPY_SETUP_:
     from .systems import *
     from .spectra import *
     from .etc import *
+    from .magnitudes import *

@@ -1,5 +1,4 @@
 import os
-import astropy.units as u
 import numpy as np
 from scipy.interpolate import interp1d
 
