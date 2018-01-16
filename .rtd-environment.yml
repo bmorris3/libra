@@ -14,3 +14,4 @@ dependencies:
     - pip:
         - sphinx-automodapi
         - numpydoc
+        - batman-package
