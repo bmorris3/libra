@@ -1,0 +1,16 @@
+name: libra
+
+channels:
+    - astropy
+
+dependencies:
+    - python=3.5
+    - astropy
+    - scipy
+    - matplotlib
+    - numpy
+    - h5py
+    - hdf5
+    - pip:
+        - sphinx-automodapi
+        - numpydoc

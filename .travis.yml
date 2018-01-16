@@ -55,7 +55,7 @@ matrix:
     include:
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
-        - python: 2.7
+        - python: 3.5
           env: SETUP_CMD='build_sphinx -w'
 
         # Try Astropy development version
