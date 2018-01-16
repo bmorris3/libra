@@ -1,7 +1,7 @@
 language: python
 
 python:
-    - 3.5
+    - 3.6
 
 # Setting sudo to false opts in to Travis-CI container-based builds.
 sudo: false
@@ -55,11 +55,11 @@ matrix:
     include:
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
-        - python: 3.5
+        - python: 3.6
           env: SETUP_CMD='build_sphinx -w'
 
         # Try Astropy development version
-        - python: 3.5
+        - python: 3.6
           env: ASTROPY_VERSION=lts
 
 install:

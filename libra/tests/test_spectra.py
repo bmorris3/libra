@@ -28,6 +28,4 @@ def test_phoenix():
         red_flux = spectrum.flux[(spectrum.wavelength > 2.5*u.um) &
                                  (spectrum.wavelength < 5*u.um)]
 
-        print(blue_flux, red_flux)
-
         assert np.mean(blue_flux) > np.mean(red_flux)
