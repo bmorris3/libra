@@ -8,7 +8,7 @@ def test_irtf():
 
     for spectrum in spectra:
         assert hasattr(spectrum.wavelength, 'unit')
-        assert not hasattr(spectrum.flux, 'unit')
+        assert hasattr(spectrum.flux, 'unit')
 
         blue_flux = spectrum.flux[spectrum.wavelength < 2.5*u.um]
         red_flux = spectrum.flux[spectrum.wavelength > 2.5*u.um]
@@ -21,7 +21,7 @@ def test_phoenix():
 
     for spectrum in spectra:
         assert hasattr(spectrum.wavelength, 'unit')
-        assert hasattr(spectrum.flux, 'unit')
+        assert not hasattr(spectrum.flux, 'unit')
 
         blue_flux = spectrum.flux[(spectrum.wavelength < 2.5*u.um) &
                                   (spectrum.wavelength > 0.6*u.um)]
