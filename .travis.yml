@@ -62,10 +62,6 @@ matrix:
         - python: 3.5
           env: ASTROPY_VERSION=lts
 
-        # Try numpy pre-release
-        - python: 3.5
-          env: NUMPY_VERSION=prerelease
-
 install:
 
     # We now use the ci-helpers package to set up our testing environment.

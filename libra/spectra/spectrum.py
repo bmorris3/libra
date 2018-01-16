@@ -2,6 +2,7 @@ from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import os
 from astropy.io import fits
+import astropy.units as u
 
 __all__ = ['Spectrum1D', 'NIRSpecSpectrum2D']
 
@@ -24,10 +25,16 @@ class Spectrum1D(object):
 
         return ax
 
+    @u.quantity_input(new_wavelengths=u.m)
     def interp_flux(self, new_wavelengths):
         f = interp1d(self.wavelength.value, self.flux, kind='linear',
                      bounds_error=False, fill_value=0)
-        return f(new_wavelengths)
+        interped_fluxes = f(new_wavelengths)
+
+        if hasattr(self.flux, 'unit'):
+            return interped_fluxes * self.flux.unit
+        return interped_fluxes
+
 
 class NIRSpecSpectrum2D(object):
     def __init__(self):
