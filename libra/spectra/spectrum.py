@@ -3,11 +3,15 @@ import matplotlib.pyplot as plt
 import os
 from astropy.io import fits
 import astropy.units as u
+import h5py
 
-__all__ = ['Spectrum1D', 'NIRSpecSpectrum2D']
+__all__ = ['Spectrum1D', 'NIRSpecSpectrum2D', 'ObsArchive']
 
 bg_path = os.path.join(os.path.dirname(__file__), os.pardir, 'data', 'etc',
                        'image_detector.fits')
+
+outputs_dir = os.path.join(os.path.dirname(__file__), os.pardir, 'data',
+                           'outputs')
 
 
 class Spectrum1D(object):
@@ -39,3 +43,17 @@ class Spectrum1D(object):
 class NIRSpecSpectrum2D(object):
     def __init__(self):
         self.image = fits.getdata(bg_path)
+
+
+class ObsArchive(object):
+    def __init__(self, fname):
+        self.path = os.path.join(outputs_dir, fname)
+        self.archive = None
+
+    def __enter__(self):
+        self.archive = h5py.File(self.path, 'rw+')
+        return self
+
+    def __exit__(self, *args):
+        self.archive.close()
+        pass
