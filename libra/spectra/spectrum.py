@@ -31,7 +31,7 @@ class Spectrum1D(object):
                      bounds_error=False, fill_value=0)
         interped_fluxes = f(new_wavelengths)
 
-        if hasattr(self.flux, 'unit'):
+        if hasattr(self.flux, 'unit') and self.flux.unit is not None:
             return interped_fluxes * self.flux.unit
         return interped_fluxes
 
