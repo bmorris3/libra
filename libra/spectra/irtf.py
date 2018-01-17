@@ -104,7 +104,7 @@ class IRTFTemplate(Spectrum1D):
             fit = np.polyval(p, gap_wavelengths)
             gap_fillers.append([gap_wavelengths, fit])
 
-        # Extend to 5.3
+        # Extend to 5.3 um
         if self.wavelength.max() < 5.3 * u.um:
             p = np.polyfit(self.wavelength[-1000:], normed_template[-1000:], 1)
             gap_wavelengths = np.arange(self.wavelength.max().value, 5.3,

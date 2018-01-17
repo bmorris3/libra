@@ -7,7 +7,7 @@ systems_json_path = os.path.join(os.path.dirname(__file__), 'data',
 
 systems = json.load(open(systems_json_path))
 
-__all__ = ['kepler296', 'kepler62', 'trappist1']
+__all__ = ['kepler296', 'kepler62', 'trappist1', 'transit_model']
 
 
 def batman_generator(star, planet):
@@ -67,3 +67,8 @@ def trappist1(planet):
     """
     return batman_generator('TRAPPIST-1', planet)
 
+
+def transit_model(t, params):
+    m = batman.TransitModel(params, t)
+    flux = m.light_curve(params)
+    return flux
