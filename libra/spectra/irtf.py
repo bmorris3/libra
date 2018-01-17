@@ -116,8 +116,8 @@ class IRTFTemplate(Spectrum1D):
         gap_fluxes = [i[1] for i in gap_fillers]
         wl_unit = self.wavelength.unit
         fl_unit = self.flux.unit
-        self.wavelength = np.concatenate([self.wavelength, *gap_wls])
-        self.flux = np.concatenate([self.flux, *gap_fluxes])
+        self.wavelength = np.concatenate([self.wavelength] + gap_wls)
+        self.flux = np.concatenate([self.flux] + gap_fluxes)
 
         sort = np.argsort(self.wavelength)
         self.wavelength = u.Quantity(self.wavelength[sort].value, wl_unit)
