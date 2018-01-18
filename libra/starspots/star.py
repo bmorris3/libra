@@ -201,18 +201,18 @@ class Star(object):
         ax.set_ylabel('y [$R_\star$]', fontsize=14)
         return ax
 
-    def _instantaneous_flux(self):
+    def _instantaneous_flux(self, spots_cartesian, spots_radii):
         # Morris et al 2018, Eqn 1
 
-        visible = self.spots_cartesian.z > 0
-        visible_spots = self.spots_cartesian[visible]
-        visible_spot_r = self.spots_r[visible]
+        visible = spots_cartesian.z > 0
+        visible_spots = spots_cartesian
+        visible_spot_r = spots_radii
         r_spots = np.sqrt(visible_spots.x**2 + visible_spots.y**2)
         spot_areas = (np.pi * visible_spot_r**2 *
                       np.sqrt(1 - (r_spots/self.r)**2))
         spot_flux = (-1 * spot_areas * self.limb_darkening_normed(r_spots) *
                      (1 - self.contrast))
-        return self.unspotted_flux + np.sum(spot_flux)
+        return self.unspotted_flux + np.sum(spot_flux, axis=1)
 
     def flux(self, times=None, t0=0):
         """
@@ -227,18 +227,17 @@ class Star(object):
         if times is None:
             return self._instantaneous_flux()
 
-        fluxes = np.zeros(len(times))
-        prev_rot = 0 * u.rad
-        for i, t in enumerate(times):
+        p_rot_d = self.rotation_period.to(u.d).value
+        rotational_phases = (((times - t0) % p_rot_d) / p_rot_d) * 2*np.pi*u.rad
 
-            p_rot_d = self.rotation_period.to(u.d).value
-            rotational_phase = (((t - t0) % p_rot_d) / p_rot_d) * 2*np.pi*u.rad
+        transform_matrix = rotation_matrix(rotational_phases[:, np.newaxis],
+                                           axis='y')
+        old_cartesian = self.spots_cartesian
+        new_cartesian = old_cartesian.transform(transform_matrix)
 
-            self.rotate(rotational_phase - prev_rot)
-            fluxes[i] = self._instantaneous_flux()
-            prev_rot = rotational_phase
-
-        self.derotate()
+        broadcast_radii = (np.ones_like(rotational_phases.value)[:, np.newaxis]
+                           * self.spots_r)
+        fluxes = self._instantaneous_flux(new_cartesian, broadcast_radii)
 
         return fluxes
 
