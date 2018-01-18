@@ -82,6 +82,7 @@ class Spot(object):
         return ("<Spot: x={0}, y={1}, z={2}, r={3}>"
                 .format(self.x, self.y, self.z, self.r))
 
+
 def latlon_to_cartesian(latitude, longitude, stellar_inclination=90*u.deg):
     """
     Convert coordinates in latitude/longitude for a star with a given
@@ -201,28 +202,21 @@ class Star(object):
         ax.set_ylabel('y [$R_\star$]', fontsize=14)
         return ax
 
-    def _instantaneous_flux(self, spots_cartesian, spots_radii):
-        # Morris et al 2018, Eqn 1
-
-        visible = spots_cartesian.z > 0
-        visible_spots = spots_cartesian
-        visible_spot_r = spots_radii
-        r_spots = np.sqrt(visible_spots.x**2 + visible_spots.y**2)
-        spot_areas = (np.pi * visible_spot_r**2 *
-                      np.sqrt(1 - (r_spots/self.r)**2))
-        spot_flux = (-1 * spot_areas * self.limb_darkening_normed(r_spots) *
-                     (1 - self.contrast))
-        return self.unspotted_flux + np.sum(spot_flux, axis=1)
-
     def flux(self, times=None, t0=0):
         """
         Compute flux at ``times`` as the star rotates.
 
         Parameters
         ----------
+        times: `~numpy.ndarray`
+            Times
+        t0 : float
+            Reference epoch.
 
         Returns
         -------
+        flux : `~numpy.ndarray`
+            Fluxes at ``times``
         """
         if times is None:
             return self._instantaneous_flux()
@@ -230,16 +224,32 @@ class Star(object):
         p_rot_d = self.rotation_period.to(u.d).value
         rotational_phases = (((times - t0) % p_rot_d) / p_rot_d) * 2*np.pi*u.rad
 
+        # Rotate the star about its axis assuming stellar inclination 90 deg
         transform_matrix = rotation_matrix(rotational_phases[:, np.newaxis],
                                            axis='y')
         old_cartesian = self.spots_cartesian
         new_cartesian = old_cartesian.transform(transform_matrix)
 
+        # Use numpy array broadcasting to vectorize computations with spot radii
         broadcast_radii = (np.ones_like(rotational_phases.value)[:, np.newaxis]
                            * self.spots_r)
-        fluxes = self._instantaneous_flux(new_cartesian, broadcast_radii)
 
-        return fluxes
+        # Only include spot flux if it's on the observer facing side
+        visible = (new_cartesian.z > 0).astype(int)
+
+        # Compute radial position of spot
+        r_spots = np.sqrt(new_cartesian.x**2 + new_cartesian.y**2)
+
+        # Compute approximate spot area, given foreshortening in 3D
+        spot_areas = (np.pi * broadcast_radii**2 *
+                      np.sqrt(1 - (r_spots/self.r)**2))
+
+        # For a given spot contrast and limb darkening, compute missing flux
+        spot_flux = (-1 * spot_areas * self.limb_darkening_normed(r_spots) *
+                     (1 - self.contrast)) * visible
+
+        return self.unspotted_flux + np.sum(spot_flux, axis=1)
+
 
     def _compute_image(self, n=3000, delete_arrays_after_use=True):
         """
@@ -270,18 +280,18 @@ class Star(object):
         image[on_star] = irradiance[on_star]
         on_spot = None
 
-        for spot in self.spots:
-            if spot.cartesian.z > 0:
-                r_spot = np.sqrt(spot.cartesian.x**2 + spot.cartesian.y**2)
+        for cartesian, r in zip(self.spots_cartesian, self.spots_r):
+            if cartesian.z > 0:
+                r_spot = np.sqrt(cartesian.x**2 + cartesian.y**2)
                 foreshorten_semiminor_axis = np.sqrt(1 - (r_spot/self.r)**2)
 
-                a = spot.r  # Semi-major axis
-                b = spot.r * foreshorten_semiminor_axis  # Semi-minor axis
-                A = np.pi/2 + np.arctan2(spot.cartesian.y, spot.cartesian.x)  # Semi-major axis rotation
-                on_spot = (((x - spot.cartesian.x) * np.cos(A) +
-                            (y - spot.cartesian.y) * np.sin(A))**2 / a**2 +
-                           ((x - spot.cartesian.x) * np.sin(A) -
-                            (y - spot.cartesian.y) * np.cos(A))**2 / b**2 <= self.r**2)
+                a = r  # Semi-major axis
+                b = r * foreshorten_semiminor_axis  # Semi-minor axis
+                A = np.pi/2 + np.arctan2(cartesian.y.value, cartesian.x.value)  # Semi-major axis rotation
+                on_spot = (((x - cartesian.x) * np.cos(A) +
+                            (y - cartesian.y) * np.sin(A))**2 / a**2 +
+                           ((x - cartesian.x) * np.sin(A) -
+                            (y - cartesian.y) * np.cos(A))**2 / b**2 <= self.r**2)
 
                 image[on_spot & on_star] *= self.contrast
 
