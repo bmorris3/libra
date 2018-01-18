@@ -91,7 +91,6 @@ class Spot(object):
         return ("<Spot: x={0}, y={1}, z={2}, r={3}>"
                 .format(self.x, self.y, self.z, self.r))
 
-
 def latlon_to_cartesian(latitude, longitude, stellar_inclination=90*u.deg):
     """
     Convert coordinates in latitude/longitude for a star with a given
@@ -135,7 +134,7 @@ class Star(object):
     Object defining a star.
     """
     def __init__(self, spots=None, u1=0.4987, u2=0.1772, r=1,
-                 radius_threshold=0.1, rotation_period=25*u.day):
+                 radius_threshold=0.1, rotation_period=25*u.day, contrast=0.7):
         """
         The star is assumed to have stellar inclination 90 deg (equator-on).
 
@@ -160,6 +159,10 @@ class Star(object):
             spots = []
         self.spots = spots
 
+        self.spots_cartesian = CartesianRepresentation(x=[spot.cartesian.x for spot in spots],
+                                                       y=[spot.cartesian.y for spot in spots],
+                                                       z=[spot.cartesian.z for spot in spots])
+        self.spots_r = np.array([spot.r for spot in spots])
         self.x = 0
         self.y = 0
         self.r = r
@@ -169,7 +172,7 @@ class Star(object):
         self.rotations_applied = 0 * u.deg
         self.rotation_period = rotation_period
         self.inclination = 90*u.deg
-
+        self.contrast = contrast
         self.unspotted_flux = (2 * np.pi *
                                quad(lambda r: r * self.limb_darkening_normed(r),
                                     0, self.r)[0])
@@ -208,17 +211,24 @@ class Star(object):
     def _instantaneous_flux(self):
         # Morris et al 2018, Eqn 1
 
-        total_flux = copy(self.unspotted_flux)
+        # for spot in self.spots:
+        #     if spot.cartesian.z > 0:
+        #         # Morris et al 2018, Eqn 2
+        #         r_spot = np.sqrt(spot.cartesian.x**2 + spot.cartesian.y**2)
+        #         spot_area = np.pi * spot.r**2 * np.sqrt(1 - (r_spot/self.r)**2)
+        #         spot_flux = (-1 * spot_area * self.limb_darkening_normed(r_spot) *
+        #                      (1 - spot.contrast))
+        #         total_flux += spot_flux
 
-        for spot in self.spots:
-            if spot.cartesian.z > 0:
-                # Morris et al 2018, Eqn 2
-                r_spot = np.sqrt(spot.cartesian.x**2 + spot.cartesian.y**2)
-                spot_area = np.pi * spot.r**2 * np.sqrt(1 - (r_spot/self.r)**2)
-                spot_flux = (-1 * spot_area * self.limb_darkening_normed(r_spot) *
-                             (1 - spot.contrast))
-                total_flux += spot_flux
-        return total_flux
+        visible = self.spots_cartesian.z > 0
+        visible_spots = self.spots_cartesian[visible]
+        visible_spot_r = self.spots_r[visible]
+        r_spots = np.sqrt(visible_spots.x**2 + visible_spots.y**2)
+        spot_areas = (np.pi * visible_spot_r**2 *
+                      np.sqrt(1 - (r_spots/self.r)**2))
+        spot_flux = (-1 * spot_areas * self.limb_darkening_normed(r_spots) *
+                     (1 - self.contrast))
+        return self.unspotted_flux + np.sum(spot_flux)
 
     def flux(self, times=None, t0=0):
         """
@@ -278,8 +288,8 @@ class Star(object):
         on_spot = None
 
         for spot in self.spots:
-            if spot.cartesianz > 0:
-                r_spot = np.sqrt(spot.cartesian.x**2 + spot.car      tesian.y**2)
+            if spot.cartesian.z > 0:
+                r_spot = np.sqrt(spot.cartesian.x**2 + spot.cartesian.y**2)
                 foreshorten_semiminor_axis = np.sqrt(1 - (r_spot/self.r)**2)
 
                 a = spot.r  # Semi-major axis
@@ -350,10 +360,9 @@ class Star(object):
         """
         transform_matrix = rotation_matrix(angle, axis='y')
 
-        for spot in self.spots:
-            old_cartesian = spot.cartesian
-            new_cartesian = old_cartesian.transform(transform_matrix)
-            spot.cartesian = new_cartesian
+        old_cartesian = self.spots_cartesian
+        new_cartesian = old_cartesian.transform(transform_matrix)
+        self.spots_cartesian = new_cartesian
         self.rotations_applied += angle
 
     def derotate(self):
