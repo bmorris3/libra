@@ -20,8 +20,7 @@ class Spot(object):
     """
     Properties of a starspot.
     """
-    def __init__(self, x=None, y=None, z=None, r=None, contrast=0.7,
-                 stellar_radius=1):
+    def __init__(self, x=None, y=None, z=None, r=None, stellar_radius=1):
         """
         Parameters
         ----------
@@ -33,8 +32,6 @@ class Spot(object):
             Z position [stellar radii], default is ``z=sqrt(r_star^2 - x^2 - y^2)``.
         r : float
             Spot radius [stellar radii], default is ``r=1``.
-        contrast : float (optional)
-            Spot contrast relative to photosphere. Default is ``c=0.7``
         stellar_radius : float
             Radius of the star, in the same units as ``x,y,z,r``. Default is 1.
         """
@@ -42,10 +39,9 @@ class Spot(object):
             z = np.sqrt(stellar_radius**2 - x**2 - y**2)
         self.r = r
         self.cartesian = CartesianRepresentation(x=x, y=y, z=z)
-        self.contrast = contrast
 
     @classmethod
-    def from_latlon(cls, latitude, longitude, radius, contrast=0.7):
+    def from_latlon(cls, latitude, longitude, radius):
         """
         Construct a spot from latitude, longitude coordinates
 
@@ -62,20 +58,16 @@ class Spot(object):
         cartesian = latlon_to_cartesian(latitude, longitude)
 
         return cls(x=cartesian.x.value, y=cartesian.y.value,
-                   z=cartesian.z.value, r=radius, contrast=contrast)
+                   z=cartesian.z.value, r=radius)
 
     @classmethod
-    def from_sunspot_distribution(cls, mean_latitude=15,
-                                  contrast=0.7, radius_multiplier=1):
+    def from_sunspot_distribution(cls, mean_latitude=15, radius_multiplier=1):
         """
         Parameters
         ----------
         mean_latitude : float
             Define the mean absolute latitude of the two symmetric active
             latitudes, where ``mean_latitude > 0``.
-        contrast : float (optional)
-            Spot contrast relative to photosphere. Default is the area-weighted
-            mean sunspot contrast (``c=0.7``).
         """
         lat = draw_random_sunspot_latitudes(n=1, mean_latitude=mean_latitude)[0]
         lon = 2*np.pi * np.random.rand() * u.rad
@@ -84,8 +76,7 @@ class Spot(object):
         cartesian = latlon_to_cartesian(lat, lon)
 
         return cls(x=cartesian.x.value, y=cartesian.y.value,
-                   z=cartesian.z.value, r=radius*radius_multiplier,
-                   contrast=contrast)
+                   z=cartesian.z.value, r=radius*radius_multiplier)
 
     def __repr__(self):
         return ("<Spot: x={0}, y={1}, z={2}, r={3}>"
@@ -154,6 +145,8 @@ class Star(object):
             List of spots on this star.
         rotation_period : `~astropy.units.Quantity`
             Stellar rotation period [default = 25 d].
+        contrast : float (optional)
+            Spot contrast relative to photosphere. Default is ``c=0.7``
         """
         if spots is None:
             spots = []
@@ -210,15 +203,6 @@ class Star(object):
 
     def _instantaneous_flux(self):
         # Morris et al 2018, Eqn 1
-
-        # for spot in self.spots:
-        #     if spot.cartesian.z > 0:
-        #         # Morris et al 2018, Eqn 2
-        #         r_spot = np.sqrt(spot.cartesian.x**2 + spot.cartesian.y**2)
-        #         spot_area = np.pi * spot.r**2 * np.sqrt(1 - (r_spot/self.r)**2)
-        #         spot_flux = (-1 * spot_area * self.limb_darkening_normed(r_spot) *
-        #                      (1 - spot.contrast))
-        #         total_flux += spot_flux
 
         visible = self.spots_cartesian.z > 0
         visible_spots = self.spots_cartesian[visible]
@@ -300,7 +284,7 @@ class Star(object):
                            ((x - spot.cartesian.x) * np.sin(A) -
                             (y - spot.cartesian.y) * np.cos(A))**2 / b**2 <= self.r**2)
 
-                image[on_spot & on_star] *= spot.contrast
+                image[on_spot & on_star] *= self.contrast
 
         if delete_arrays_after_use:
             del on_star
