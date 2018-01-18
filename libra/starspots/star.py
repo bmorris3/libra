@@ -2,6 +2,7 @@
 
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
+from copy import copy
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -46,8 +47,7 @@ class Spot(object):
         self.contrast = contrast
 
     @classmethod
-    def from_latlon(cls, latitude, longitude, stellar_inclination, radius,
-                    contrast=0.7):
+    def from_latlon(cls, latitude, longitude, radius, contrast=0.7):
         """
         Construct a spot from latitude, longitude coordinates
 
@@ -57,28 +57,21 @@ class Spot(object):
             Spot latitude [deg]
         longitude : float
             Spot longitude [deg]
-        stellar_inclination : float
-            Stellar inclination angle, measured away from the line of sight,
-            in [deg].
         radius : float
             Spot radius [stellar radii]
         """
 
-        cartesian = latlon_to_cartesian(latitude, longitude,
-                                        stellar_inclination)
+        cartesian = latlon_to_cartesian(latitude, longitude)
 
         return cls(x=cartesian.x.value, y=cartesian.y.value,
                    z=cartesian.z.value, r=radius, contrast=contrast)
 
     @classmethod
-    def from_sunspot_distribution(cls, stellar_inclination, mean_latitude=15,
+    def from_sunspot_distribution(cls, mean_latitude=15,
                                   contrast=0.7, radius_multiplier=1):
         """
         Parameters
         ----------
-        stellar_inclination : float
-            Stellar inclination angle, measured away from the line of sight,
-            in [deg].
         mean_latitude : float
             Define the mean absolute latitude of the two symmetric active
             latitudes, where ``mean_latitude > 0``.
@@ -90,7 +83,7 @@ class Spot(object):
         lon = 2*np.pi * np.random.rand() * u.rad
         radius = draw_random_sunspot_radii(n=1)[0]
 
-        cartesian = latlon_to_cartesian(lat, lon, stellar_inclination)
+        cartesian = latlon_to_cartesian(lat, lon)
 
         return cls(x=cartesian.x.value, y=cartesian.y.value,
                    z=cartesian.z.value, r=radius*radius_multiplier,
@@ -101,7 +94,7 @@ class Spot(object):
                 .format(self.x, self.y, self.z, self.r))
 
 
-def latlon_to_cartesian(latitude, longitude, stellar_inclination):
+def latlon_to_cartesian(latitude, longitude, stellar_inclination=90*u.deg):
     """
     Convert coordinates in latitude/longitude for a star with a given
     stellar inclination into cartesian coordinates.
@@ -117,7 +110,7 @@ def latlon_to_cartesian(latitude, longitude, stellar_inclination):
         Spot longitude. Will assume unit=deg if none is specified.
     stellar_inclination : float
         Stellar inclination angle, measured away from the line of sight,
-        in [deg].
+        in [deg]. Default is 90 deg.
 
     Returns
     -------
@@ -128,9 +121,6 @@ def latlon_to_cartesian(latitude, longitude, stellar_inclination):
     if not hasattr(longitude, 'unit') and not hasattr(latitude, 'unit'):
         longitude *= u.deg
         latitude *= u.deg
-
-    if not hasattr(stellar_inclination, 'unit'):
-        stellar_inclination *= u.deg
 
     c = UnitSphericalRepresentation(longitude, latitude)
     cartesian = c.to_cartesian()
@@ -147,9 +137,10 @@ class Star(object):
     Object defining a star.
     """
     def __init__(self, spots=None, u1=0.4987, u2=0.1772, r=1,
-                 radius_threshold=0.1, inclination=None,
-                 rotation_period=25*u.day):
+                 radius_threshold=0.1, rotation_period=25*u.day):
         """
+        The star is assumed to have stellar inclination 90 deg (equator-on).
+
         Parameters
         ----------
         u1 : float (optional)
@@ -164,8 +155,6 @@ class Star(object):
             solution.
         spots : list (optional)
             List of spots on this star.
-        inclination : `~astropy.units.Quantity`
-            Stellar inclination. Default is 90 deg.
         rotation_period : `~astropy.units.Quantity`
             Stellar rotation period [default = 25 d].
         """
@@ -178,31 +167,14 @@ class Star(object):
         self.r = r
         self.u1 = u1
         self.u2 = u2
-
-        if inclination is None:
-            inclination = 90*u.deg
-
-        self._inclination = inclination
         self.radius_threshold = radius_threshold
         self.rotations_applied = 0 * u.deg
         self.rotation_period = rotation_period
+        self.inclination = 90*u.deg
 
-    @property
-    def inclination(self):
-        return self._inclination
-
-    @inclination.setter
-    def inclination(self, new_inclination):
-        previous_inclination = self._inclination
-        rot_new_inc = rotation_matrix(previous_inclination - new_inclination,
-                                      axis='x')
-        for spot in self.spots:
-            cartesian = CartesianRepresentation(x=spot.x, y=spot.y, z=spot.z
-                                                ).transform(rot_new_inc)
-            spot.x = cartesian.x.value
-            spot.y = cartesian.y.value
-            spot.z = cartesian.z.value
-        self._inclination = new_inclination
+        self.unspotted_flux = (2 * np.pi *
+                               quad(lambda r: r * self.limb_darkening_normed(r),
+                                    0, self.r)[0])
 
     def plot(self, n=3000, ax=None):
         """
@@ -237,9 +209,8 @@ class Star(object):
 
     def _instantaneous_flux(self):
         # Morris et al 2018, Eqn 1
-        total_flux = (2 * np.pi *
-                      quad(lambda r: r * self.limb_darkening_normed(r),
-                           0, self.r)[0])
+
+        total_flux = copy(self.unspotted_flux)
 
         for spot in self.spots:
             if spot.z > 0:
@@ -379,11 +350,7 @@ class Star(object):
         angle : `~astropy.units.Quantity`
 
         """
-        remove_is = rotation_matrix(-self.inclination, axis='x')
-        rotate = rotation_matrix(angle, axis='z')
-        add_is = rotation_matrix(self.inclination, axis='x')
-
-        transform_matrix = matrix_product(remove_is, rotate, add_is)
+        transform_matrix = rotation_matrix(angle, axis='y')
 
         for spot in self.spots:
             cartesian = CartesianRepresentation(x=spot.x, y=spot.y, z=spot.z
