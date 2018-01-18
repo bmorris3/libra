@@ -1,4 +1,5 @@
 import numpy as np
+import astropy.units as u
 
 __all__ = ['flare_flux']
 
@@ -37,7 +38,7 @@ def flare_flux(times, flare_epoch, delta_f, half_width):
 
     Returns
     -------
-    flux : `~numpy.ndarray
+    flux : `~numpy.ndarray`
         Flare fluxes at ``times``
     """
     scaled_times = (times - flare_epoch) / half_width
@@ -49,3 +50,37 @@ def flare_flux(times, flare_epoch, delta_f, half_width):
     flux[rise] = f_rise(scaled_times[rise])
     flux[decay] = f_decay(scaled_times[decay])
     return flux * delta_f
+
+
+def proxima_flare_freq(flare_energy):
+    """
+    Frequency of flares of given energy on Proxima Cen, from Davenport 2016
+
+    Parameters
+    ----------
+    flare_energy : float
+        Energy of the flare (ergs)
+
+    Returns
+    -------
+    frequency : float
+        Frequency of flares of energy ``flare_energy``
+    """
+    return 10**(-0.68 * np.log10(flare_energy) + 20.9) * u.d**-1
+
+
+def proxima_flare_amplitude(flare_energy):
+    """
+    Relative peak fluxes of flares given energy on Proxima Cen, Davenport 2016
+
+    Parameters
+    ----------
+    flare_energy : float
+        Energy of the flare (ergs)
+
+    Returns
+    -------
+    amplitude : float
+        Peak relative flux during flare
+    """
+    return 10**(0.48 * np.log10(flare_energy) - 13.6)
