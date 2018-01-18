@@ -38,12 +38,10 @@ class Spot(object):
         stellar_radius : float
             Radius of the star, in the same units as ``x,y,z,r``. Default is 1.
         """
-        self.x = x
-        self.y = y
         if z is None:
             z = np.sqrt(stellar_radius**2 - x**2 - y**2)
-        self.z = z
         self.r = r
+        self.cartesian = CartesianRepresentation(x=x, y=y, z=z)
         self.contrast = contrast
 
     @classmethod
@@ -213,9 +211,9 @@ class Star(object):
         total_flux = copy(self.unspotted_flux)
 
         for spot in self.spots:
-            if spot.z > 0:
+            if spot.cartesian.z > 0:
                 # Morris et al 2018, Eqn 2
-                r_spot = np.sqrt(spot.x**2 + spot.y**2)
+                r_spot = np.sqrt(spot.cartesian.x**2 + spot.cartesian.y**2)
                 spot_area = np.pi * spot.r**2 * np.sqrt(1 - (r_spot/self.r)**2)
                 spot_flux = (-1 * spot_area * self.limb_darkening_normed(r_spot) *
                              (1 - spot.contrast))
@@ -280,17 +278,17 @@ class Star(object):
         on_spot = None
 
         for spot in self.spots:
-            if spot.z > 0:
-                r_spot = np.sqrt(spot.x**2 + spot.y**2)
+            if spot.cartesianz > 0:
+                r_spot = np.sqrt(spot.cartesian.x**2 + spot.car      tesian.y**2)
                 foreshorten_semiminor_axis = np.sqrt(1 - (r_spot/self.r)**2)
 
                 a = spot.r  # Semi-major axis
                 b = spot.r * foreshorten_semiminor_axis  # Semi-minor axis
-                A = np.pi/2 + np.arctan2(spot.y, spot.x)  # Semi-major axis rotation
-                on_spot = (((x - spot.x) * np.cos(A) +
-                            (y - spot.y) * np.sin(A))**2 / a**2 +
-                           ((x - spot.x) * np.sin(A) -
-                            (y - spot.y) * np.cos(A))**2 / b**2 <= self.r**2)
+                A = np.pi/2 + np.arctan2(spot.cartesian.y, spot.cartesian.x)  # Semi-major axis rotation
+                on_spot = (((x - spot.cartesian.x) * np.cos(A) +
+                            (y - spot.cartesian.y) * np.sin(A))**2 / a**2 +
+                           ((x - spot.cartesian.x) * np.sin(A) -
+                            (y - spot.cartesian.y) * np.cos(A))**2 / b**2 <= self.r**2)
 
                 image[on_spot & on_star] *= spot.contrast
 
@@ -353,11 +351,9 @@ class Star(object):
         transform_matrix = rotation_matrix(angle, axis='y')
 
         for spot in self.spots:
-            cartesian = CartesianRepresentation(x=spot.x, y=spot.y, z=spot.z
-                                                ).transform(transform_matrix)
-            spot.x = cartesian.x.value
-            spot.y = cartesian.y.value
-            spot.z = cartesian.z.value
+            old_cartesian = spot.cartesian
+            new_cartesian = old_cartesian.transform(transform_matrix)
+            spot.cartesian = new_cartesian
         self.rotations_applied += angle
 
     def derotate(self):
