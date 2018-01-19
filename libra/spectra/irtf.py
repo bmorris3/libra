@@ -8,6 +8,8 @@ import astropy.units as u
 import h5py
 import numpy as np
 from astropy.constants import h, c
+from scipy.optimize import fmin_powell
+from astropy.modeling.blackbody import blackbody_lambda
 
 from .spectrum import Spectrum1D
 from .spectral_types import spt_to_teff
@@ -129,3 +131,20 @@ class IRTFTemplate(Spectrum1D):
         sort = np.argsort(self.wavelength)
         self.wavelength = u.Quantity(self.wavelength[sort].value, wl_unit)
         self.flux = u.Quantity(self.flux[sort].value, fl_unit)
+
+    def scale_to_teff(self, delta_teff):
+
+        def model(p):
+            return p[0] * blackbody_lambda(self.wavelength, p[1]).value
+
+        def chi2(p):
+            return np.sum((model(p) - self.flux.value)**2)
+
+        result = fmin_powell(chi2, [1e-17, 2500], disp=False)
+
+        lower_bb = model([result[0], self.t_eff + delta_teff])
+
+        ratio_bbs = lower_bb / model(result)
+
+        return Spectrum1D(self.wavelength, ratio_bbs * self.flux,
+                          header=self.header)
