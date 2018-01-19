@@ -23,11 +23,11 @@ class Spectrum1D(object):
         self.error = error
         self.header = header
 
-    def plot(self, ax=None):
+    def plot(self, ax=None, **kwargs):
         if ax is None:
             ax = plt.gca()
 
-        ax.plot(self.wavelength, self.flux)
+        ax.plot(self.wavelength, self.flux, **kwargs)
 
         return ax
 

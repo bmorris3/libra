@@ -132,7 +132,22 @@ class IRTFTemplate(Spectrum1D):
         self.wavelength = u.Quantity(self.wavelength[sort].value, wl_unit)
         self.flux = u.Quantity(self.flux[sort].value, fl_unit)
 
-    def scale_to_teff(self, delta_teff):
+    def scale_temperature(self, delta_teff):
+        """
+        Scale up or down the flux according to the ratio of blackbodies between
+        the effective temperature of the IRTF template spectrum and the
+        new effective temperature ``t_eff + delta_teff``.
+
+        Parameters
+        ----------
+        delta_teff : float
+            Change in effective temperature to approximate
+
+        Returns
+        -------
+        spec : `~libra.IRTFTemplate`
+            Scaled spectral template to ``t_eff + delta_teff``
+        """
 
         def model(p):
             return p[0] * blackbody_lambda(self.wavelength, p[1]).value
@@ -140,7 +155,7 @@ class IRTFTemplate(Spectrum1D):
         def chi2(p):
             return np.sum((model(p) - self.flux.value)**2)
 
-        result = fmin_powell(chi2, [1e-17, 2500], disp=False)
+        result = fmin_powell(chi2, [1e-17, self.t_eff], disp=False)
 
         lower_bb = model([result[0], self.t_eff + delta_teff])
 
