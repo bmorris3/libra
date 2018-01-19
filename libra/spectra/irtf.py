@@ -2,13 +2,15 @@
 This submodule taken from: https://github.com/bmorris3/irtf_templates
 """
 
-import h5py
 import os
+
 import astropy.units as u
-from astropy.constants import h, c
+import h5py
 import numpy as np
+from astropy.constants import h, c
 
 from .spectrum import Spectrum1D
+from .spectral_types import spt_to_teff
 
 __all__ = ['IRTFTemplate']
 
@@ -45,6 +47,11 @@ class IRTFTemplate(Spectrum1D):
         self.flux = data[:, 1] * u.W * u.m**-2 * u.um**-1
         self.error = data[:, 2]
         self.header = header
+
+        try:
+            self.t_eff = spt_to_teff(sptype)
+        except KeyError:
+            self.t_eff = None
 
         if fill_gaps:
             self.fill_gaps()
