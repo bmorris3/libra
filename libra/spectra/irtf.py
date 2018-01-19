@@ -8,7 +8,8 @@ import astropy.units as u
 import h5py
 import numpy as np
 from astropy.constants import h, c
-from scipy.optimize import fmin_powell
+from scipy.optimize import fmin_powell, fmin_l_bfgs_b
+from scipy.ndimage import gaussian_filter1d
 from astropy.modeling.blackbody import blackbody_lambda
 
 from .spectrum import Spectrum1D
@@ -132,7 +133,7 @@ class IRTFTemplate(Spectrum1D):
         self.wavelength = u.Quantity(self.wavelength[sort].value, wl_unit)
         self.flux = u.Quantity(self.flux[sort].value, fl_unit)
 
-    def scale_temperature(self, delta_teff):
+    def scale_temperature(self, delta_teff, plot=False):
         """
         Scale up or down the flux according to the ratio of blackbodies between
         the effective temperature of the IRTF template spectrum and the
@@ -149,17 +150,22 @@ class IRTFTemplate(Spectrum1D):
             Scaled spectral template to ``t_eff + delta_teff``
         """
 
-        def model(p):
-            return p[0] * blackbody_lambda(self.wavelength, p[1]).value
+        new_t_eff = self.t_eff + delta_teff
+        old_bb = blackbody_lambda(self.wavelength, self.t_eff)
+        new_bb = blackbody_lambda(self.wavelength, new_t_eff)
 
-        def chi2(p):
-            return np.sum((model(p) - self.flux.value)**2)
+        ratio_bbs = (new_bb / old_bb).value
 
-        result = fmin_powell(chi2, [1e-17, self.t_eff], disp=False)
-
-        lower_bb = model([result[0], self.t_eff + delta_teff])
-
-        ratio_bbs = lower_bb / model(result)
+        if plot:
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(figsize=(10, 8))
+            ax.plot(self.wavelength, self.flux, label='init')
+            ax.plot(self.wavelength,
+                    old_bb * np.max(self.flux) / np.max(old_bb), label='old bb')
+            ax.plot(self.wavelength,
+                    new_bb * np.max(self.flux) / np.max(old_bb), label='new bb', ls='--')
+            ax.plot(self.wavelength, ratio_bbs * self.flux, label='scaled', ls=':')
+            ax.legend()
 
         return Spectrum1D(self.wavelength, ratio_bbs * self.flux,
-                          header=self.header)
+                          header=self.header, t_eff=new_t_eff)

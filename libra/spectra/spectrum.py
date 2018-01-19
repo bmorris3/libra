@@ -17,11 +17,12 @@ outputs_dir = os.path.join(os.path.dirname(__file__), os.pardir, 'data',
 
 
 class Spectrum1D(object):
-    def __init__(self, wavelength, flux, error=None, header=None):
+    def __init__(self, wavelength, flux, error=None, header=None, t_eff=None):
         self.wavelength = wavelength
         self.flux = flux
         self.error = error
         self.header = header
+        self.t_eff = t_eff
 
     def plot(self, ax=None, **kwargs):
         if ax is None:
