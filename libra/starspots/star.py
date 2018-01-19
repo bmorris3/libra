@@ -2,7 +2,6 @@
 
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-from copy import copy
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -202,7 +201,47 @@ class Star(object):
         ax.set_ylabel('y [$R_\star$]', fontsize=14)
         return ax
 
-    def flux(self, times=None, t0=0):
+    def spotted_area(self, times, t0=0):
+        """
+        Compute flux at ``times`` as the star rotates.
+
+        Parameters
+        ----------
+        times: `~numpy.ndarray`
+            Times
+        t0 : float
+            Reference epoch.
+
+        Returns
+        -------
+        area : `~numpy.ndarray`
+            Area covered by spots at ``times`` [Hem]
+        """
+        p_rot_d = self.rotation_period.to(u.d).value
+        rotational_phases = (((times - t0) % p_rot_d) / p_rot_d) * 2*np.pi*u.rad
+
+        # Rotate the star about its axis assuming stellar inclination 90 deg
+        transform_matrix = rotation_matrix(rotational_phases[:, np.newaxis],
+                                           axis='y')
+        old_cartesian = self.spots_cartesian
+        new_cartesian = old_cartesian.transform(transform_matrix)
+
+        # Use numpy array broadcasting to vectorize computations with spot radii
+        broadcast_radii = (np.ones_like(rotational_phases.value)[:, np.newaxis]
+                           * self.spots_r)
+
+        # Only include spot flux if it's on the observer facing side
+        visible = (new_cartesian.z > 0).astype(int)
+
+        # Compute radial position of spot
+        r_spots = np.sqrt(new_cartesian.x**2 + new_cartesian.y**2)
+
+        # Compute approximate spot area, given foreshortening in 3D
+        spot_areas = (np.pi * broadcast_radii**2 *
+                      np.sqrt(1 - (r_spots/self.r)**2))
+        return np.sum(spot_areas * visible, axis=1) / (2 * np.pi * self.r**2)
+
+    def flux(self, times, t0=0):
         """
         Compute flux at ``times`` as the star rotates.
 
@@ -218,9 +257,6 @@ class Star(object):
         flux : `~numpy.ndarray`
             Fluxes at ``times``
         """
-        if times is None:
-            return self._instantaneous_flux()
-
         p_rot_d = self.rotation_period.to(u.d).value
         rotational_phases = (((times - t0) % p_rot_d) / p_rot_d) * 2*np.pi*u.rad
 

@@ -4,6 +4,8 @@ import os
 from astropy.io import fits
 import astropy.units as u
 import h5py
+import numpy as np
+from astropy.tests.helper import assert_quantity_allclose
 
 __all__ = ['Spectrum1D', 'NIRSpecSpectrum2D', 'ObsArchive']
 
@@ -38,6 +40,26 @@ class Spectrum1D(object):
         if hasattr(self.flux, 'unit') and self.flux.unit is not None:
             return interped_fluxes * self.flux.unit
         return interped_fluxes
+
+    def __add__(self, other_spectrum):
+
+        if not hasattr(other_spectrum, 'wavelength'):
+            raise NotImplementedError()
+
+        interp_flux = (np.interp(other_spectrum.wavelength.value,
+                                 self.wavelength.value, self.flux.value) *
+                       self.flux.unit)
+
+        return Spectrum1D(other_spectrum.wavelength,
+                          interp_flux + other_spectrum.flux,
+                          header=[self.header, other_spectrum.header])
+
+    def __rmul__(self, multiplier):
+        if not np.isscalar(multiplier):
+            raise NotImplementedError()
+
+        return Spectrum1D(self.wavelength, multiplier * self.flux,
+                          header=self.header)
 
 
 class NIRSpecSpectrum2D(object):

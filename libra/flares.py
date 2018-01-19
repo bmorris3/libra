@@ -1,7 +1,11 @@
+import os
 import numpy as np
 import astropy.units as u
 
 __all__ = ['flare_flux']
+
+trappist_ffd_path = os.path.join(__file__, 'data',
+                                 'trappist1_ffd_davenport.csv')
 
 
 def f_rise(t_half):
@@ -84,3 +88,4 @@ def proxima_flare_amplitude(flare_energy):
         Peak relative flux during flare
     """
     return 10**(0.48 * np.log10(flare_energy) - 13.6)
+
