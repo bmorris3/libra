@@ -290,6 +290,72 @@ class Star(object):
 
         return self.unspotted_flux + np.sum(spot_flux, axis=1)
 
+    def flux_weighted_area(self, times, t0=0):
+        """
+        Compute flux at ``times`` as the star rotates.
+
+        Parameters
+        ----------
+        times: `~numpy.ndarray`
+            Times
+        t0 : float
+            Reference epoch.
+
+        Returns
+        -------
+        flux : `~numpy.ndarray`
+            Fluxes at ``times``
+        """
+        p_rot_d = self.rotation_period.to(u.d).value
+        rotational_phases = (((times - t0) % p_rot_d) / p_rot_d) * 2*np.pi*u.rad
+
+        # Rotate the star about its axis assuming stellar inclination 90 deg
+        transform_matrix = rotation_matrix(rotational_phases[:, np.newaxis],
+                                           axis='y')
+        old_cartesian = self.spots_cartesian
+        new_cartesian = old_cartesian.transform(transform_matrix)
+
+        # Use numpy array broadcasting to vectorize computations with spot radii
+        broadcast_radii = (np.ones_like(rotational_phases.value)[:, np.newaxis]
+                           * self.spots_r)
+
+        # Only include spot flux if it's on the observer facing side
+        visible = (new_cartesian.z > 0).astype(int)
+
+        # Compute radial position of spot
+        r_spots = np.sqrt(new_cartesian.x**2 + new_cartesian.y**2)
+
+        # Compute approximate spot area, given foreshortening in 3D
+        spot_areas = (np.pi * broadcast_radii**2 *
+                      np.sqrt(1 - (r_spots/self.r)**2))
+
+        area_spotted = np.sum(spot_areas * visible, axis=1) / (2 * np.pi * self.r**2)
+
+        if hasattr(area_spotted, 'unit'):
+            area_spotted = area_spotted.value
+
+        # For a given spot contrast and limb darkening, compute missing flux
+        flux_spots = np.sum((spot_areas * self.limb_darkening_normed(r_spots) *
+                            (1 - self.contrast)) * visible, axis=1)
+
+        missing_photosphere = (-1 * spot_areas *
+                               self.limb_darkening_normed(r_spots)) * visible
+
+        flux_photosphere = self.unspotted_flux + np.sum(missing_photosphere,
+                                                        axis=1)
+
+        photosphere_area = 1 - area_spotted
+
+        # flux_weighted_spot_area = (flux_photosphere * photosphere_area +
+        #                            flux_spots * area_spotted)
+
+        flux_weighted_spot_area = (flux_spots * area_spotted /
+                                   (flux_photosphere * photosphere_area))
+
+        if hasattr(flux_weighted_spot_area, 'unit'):
+            flux_weighted_spot_area = flux_weighted_spot_area.value
+
+        return flux_weighted_spot_area
 
     def _compute_image(self, n=3000, delete_arrays_after_use=True):
         """

@@ -89,3 +89,45 @@ def proxima_flare_amplitude(flare_energy):
     """
     return 10**(0.48 * np.log10(flare_energy) - 13.6)
 
+
+def sample_flare_energies(observation_duration, verbose=False,
+                          min_flare_energy=28, max_flare_energy=31.5):
+    """
+    For an observation of length ``observation_duration``,
+    return energies of all flares that will occur, assuming we
+    truncate the flare distribution on
+    ``(min_flare_energy, max_flare_energy)``.
+    """
+    energy_range = np.linspace(min_flare_energy, max_flare_energy, 100)
+
+    best_fit_params = np.array([-0.19222414,  5.91595501])
+    log_nu_fit = np.polyval(best_fit_params, energy_range)
+
+    counts_decimal = observation_duration * (10**log_nu_fit / u.day)
+    counts = np.floor(counts_decimal)
+
+    observed_flare_energies = []
+
+    for integer in np.unique(counts):
+        # Minimum energy flare
+        min_energy = np.min(energy_range[counts == integer])
+        # Maximum energy flare
+        max_energy = np.max(energy_range[counts == integer])
+        # Randomly draw an integer number of flares from this energy range
+        sample_energy = ((max_energy - min_energy) *
+                         np.random.rand(int(integer)) + min_energy)
+        if verbose:
+            print("min={0:.2f}, max={1:.2f}, samples={2}"
+                  .format(min_energy, max_energy, sample_energy))
+
+        observed_flare_energies.extend(sample_energy)
+
+    return observed_flare_energies
+
+
+def sample_flares(times):
+    observation_duration = times[-1] - times[0]
+    energies = sample_flare_energies(observation_duration)
+
+
+    return fluxes
