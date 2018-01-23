@@ -192,7 +192,8 @@ class Star(object):
         image = self._compute_image(n=n)
 
         ax.imshow(image, origin='lower', interpolation='nearest',
-                  cmap=plt.cm.Greys_r, extent=[-1, 1, -1, 1])
+                  cmap=plt.cm.Greys_r, extent=[-1, 1, -1, 1],
+                  vmin=0, vmax=1)
         ax.set_aspect('equal')
 
         ax.set_xlim([-1, 1])
@@ -239,7 +240,10 @@ class Star(object):
         # Compute approximate spot area, given foreshortening in 3D
         spot_areas = (np.pi * broadcast_radii**2 *
                       np.sqrt(1 - (r_spots/self.r)**2))
-        return np.sum(spot_areas * visible, axis=1) / (2 * np.pi * self.r**2)
+        area = np.sum(spot_areas * visible, axis=1) / (2 * np.pi * self.r**2)
+        if hasattr(area, 'unit'):
+            area = area.value
+        return area
 
     def flux(self, times, t0=0):
         """
