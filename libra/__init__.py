@@ -17,3 +17,4 @@ if not _ASTROPY_SETUP_:
     from .spectra import *
     from .etc import *
     from .flares import *
+    from .variability import *
