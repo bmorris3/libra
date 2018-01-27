@@ -2,6 +2,7 @@ import os
 import numpy as np
 import astropy.units as u
 from scipy.stats import poisson
+from astropy.modeling.blackbody import blackbody_lambda
 
 __all__ = ['flare_flux', 'inject_flares']
 
@@ -136,7 +137,7 @@ def get_flare_durations(observation_duration, verbose=False,
     return 10**np.array(observed_flare_durs) * u.s
 
 
-def inject_flares(times):
+def inject_flares_total_flux(times):
     """
     Inject flares into a transit light curve at ``times``
 
@@ -169,4 +170,32 @@ def inject_flares(times):
         rand_samp = np.random.randint(0, len(peakflux))
         flux += flare_flux(times, flare_times[i], peakflux[rand_samp] - 1,
                            halfdur[rand_samp])
-    return flux + 1
+    return flux
+
+
+def inject_flares(wavelengths, times):
+    """
+    Inject flares into a transit light curve at ``times`` at ``wavelengths``
+
+    Model the flare rate as a Poisson process with rate parameter set by the
+    K2 flare frequency - 11 flares in 78.8 days. Draw random variates from that
+    Poisson distribution and assign properties to the flares from the K2
+    observations.
+
+    Assume a 10000 K blackbody for flares.
+
+    Parameters
+    ----------
+    times : `~numpy.ndarray`
+        Times of observations
+
+    Returns
+    -------
+    fluxes : `~numpy.ndarray`
+        Fluxes with flares added.
+    """
+    total_flux = inject_flares_total_flux(times)
+
+    bb = blackbody_lambda(wavelengths, 10000).value
+    bb_flux_total = np.sum(bb)  # total flux from flare in bandpass
+    return bb / bb_flux_total * total_flux[:, np.newaxis]

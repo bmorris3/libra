@@ -15,6 +15,9 @@ from .sun import draw_random_sunspot_latitudes, draw_random_sunspot_radii
 __all__ = ['Star', 'Spot']
 
 
+np.random.seed(42)
+
+
 class Spot(object):
     """
     Properties of a starspot.
