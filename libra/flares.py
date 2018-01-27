@@ -1,14 +1,15 @@
 import os
 import numpy as np
 import astropy.units as u
+from scipy.stats import poisson
 
-__all__ = ['sample_flares']
+__all__ = ['flare_flux', 'inject_flares']
 
 trappist_ffd_path = os.path.join(os.path.dirname(__file__), 'data', 'flares',
                                  'trappist1_ffd_davenport.csv')
 
 trappist_flares_path = os.path.join(os.path.dirname(__file__), 'data', 'flares',
-                                    'trappist1_fbeye_davenport.csv')
+                                    'trappist1_morris.txt')
 
 
 def f_rise(t_half):
@@ -92,43 +93,10 @@ def proxima_flare_amplitude(flare_energy):
     """
     return 10**(0.48 * np.log10(flare_energy) - 13.6)
 
-# def sample_flare_energies(observation_duration, verbose=False,
-#                           min_flare_energy=28, max_flare_energy=31.5):
-#     """
-#     For an observation of length ``observation_duration``,
-#     return energies of all flares that will occur, assuming we
-#     truncate the flare distribution on
-#     ``(min_flare_energy, max_flare_energy)``.
-#     """
-#     energy_range = np.linspace(min_flare_energy, max_flare_energy, 100)
-#
-#     best_fit_params = np.array([-0.19222414,  0.49275852])
-#     log_nu_fit = np.polyval(best_fit_params, energy_range)
-#
-#     counts_decimal = observation_duration * (10**log_nu_fit / u.day)
-#     counts = np.floor(counts_decimal)
-#
-#     observed_flare_energies = []
-#
-#     for integer in np.unique(counts):
-#         # Minimum energy flare
-#         min_energy = np.min(energy_range[counts == integer])
-#         # Maximum energy flare
-#         max_energy = np.max(energy_range[counts == integer])
-#         # Randomly draw an integer number of flares from this energy range
-#         sample_energy = ((max_energy - min_energy) *
-#                          np.random.rand(int(integer)) + min_energy)
-#         if verbose:
-#             print("min={0:.2f}, max={1:.2f}, samples={2}"
-#                   .format(min_energy, max_energy, sample_energy))
-#
-#         observed_flare_energies.extend(sample_energy)
-#
-#     return observed_flare_energies
-
 
 def get_flare_durations(observation_duration, verbose=False,
-                        min_flare_log_dur=-0.5, max_flare_log_dur=3.5):
+                        min_flare_log_dur=0, max_flare_log_dur=3.5):
+                        # min_flare_log_dur=1, max_flare_log_dur=3.5):
     """
     For an observation of length ``observation_duration``,
     return energies of all flares that will occur.
@@ -140,18 +108,25 @@ def get_flare_durations(observation_duration, verbose=False,
 
     best_fit_params = np.array([-0.19222414,  0.49275852])
     log_nu_fit = np.polyval(best_fit_params, log_dur_range)
+    log_nu_fit[log_dur_range < 0.5] = 0.45
 
     counts_decimal = observation_duration * (10**log_nu_fit / u.day)
-    counts = np.floor(counts_decimal).value
+    counts = np.max([np.floor(counts_decimal).value,
+                     np.zeros(len(counts_decimal))], axis=0)
+
+    import matplotlib.pyplot as plt
+    plt.plot(log_dur_range, counts_decimal)
+    plt.plot(log_dur_range, counts)
+    plt.show()
 
     observed_flare_durs = []
 
     for integer in np.unique(counts):
-        # Minimum energy flare
+        # Minimum dur
         min_dur = np.min(log_dur_range[counts == integer])
-        # Maximum energy flare
+        # Maximum dur
         max_dur = np.max(log_dur_range[counts == integer])
-        # Randomly draw an integer number of flares from this energy range
+        # Randomly draw an integer number of flares from this duration range
         sample_dur = ((max_dur - min_dur)*np.random.rand(int(integer)) + min_dur)
         if verbose:
             print("min={0:.2f}, max={1:.2f}, samples={2}".format(min_dur, max_dur, sample_dur))
@@ -161,30 +136,37 @@ def get_flare_durations(observation_duration, verbose=False,
     return 10**np.array(observed_flare_durs) * u.s
 
 
-def get_flare_flux_amplitude(duration):
-    fbeye = np.loadtxt(trappist_flares_path)
-    peak_flux = fbeye[:, 7]
-    equiv_dur = fbeye[:, 8] * u.min
+def inject_flares(times):
+    """
+    Inject flares into a transit light curve at ``times``
 
-    ind = np.argmin(np.abs(duration - equiv_dur))
-    return peak_flux[ind]
+    Model the flare rate as a Poisson process with rate parameter set by the
+    K2 flare frequency - 11 flares in 78.8 days. Draw random variates from that
+    Poisson distribution and assign properties to the flares from the K2
+    observations.
 
+    Parameters
+    ----------
+    times : `~numpy.ndarray`
+        Times of observations
 
-def sample_flares(times, seed=None):
-    observation_duration = times[-1] - times[0]
-    flare_durations = get_flare_durations(observation_duration)
+    Returns
+    -------
+    fluxes : `~numpy.ndarray`
+        Fluxes with flares added.
+    """
+    halfdur, peakflux = np.loadtxt(trappist_flares_path, unpack=True)
+    cadence_dt = times[1] - times[0]
 
-    if seed is not None:
-        np.random.seed(seed)
+    flare_rate = cadence_dt * (11 / 78.8)  # flare rate observed by K2
+    r = poisson.rvs(flare_rate, size=times.shape[0])
+    n_flares = np.sum(r)
+    flare_times = times[r.astype(bool)]
 
-    flare_peaks = [get_flare_flux_amplitude(dur) for dur in flare_durations]
+    flux = np.zeros(len(times))
 
-    flare_times = times.min() + np.random.rand(len(flare_peaks)) * times.ptp()
-
-    fluxes = [flare_flux(times, t0, p, d.to(u.d).value) for p, d, t0 in
-              zip(flare_peaks, flare_durations, flare_times)]
-
-    return np.sum(fluxes, axis=0)
-
-
-
+    for i in range(n_flares):
+        rand_samp = np.random.randint(0, len(peakflux))
+        flux += flare_flux(times, flare_times[i], peakflux[rand_samp] - 1,
+                           halfdur[rand_samp])
+    return flux + 1
