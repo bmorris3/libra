@@ -4,7 +4,7 @@ import astropy.units as u
 from scipy.stats import poisson
 from astropy.modeling.blackbody import blackbody_lambda
 
-__all__ = ['flare_flux', 'inject_flares']
+__all__ = ['flare_flux', 'inject_flares', 'inject_example_flare']
 
 trappist_ffd_path = os.path.join(os.path.dirname(__file__), 'data', 'flares',
                                  'trappist1_ffd_davenport.csv')
@@ -115,10 +115,10 @@ def get_flare_durations(observation_duration, verbose=False,
     counts = np.max([np.floor(counts_decimal).value,
                      np.zeros(len(counts_decimal))], axis=0)
 
-    import matplotlib.pyplot as plt
-    plt.plot(log_dur_range, counts_decimal)
-    plt.plot(log_dur_range, counts)
-    plt.show()
+    # import matplotlib.pyplot as plt
+    # plt.plot(log_dur_range, counts_decimal)
+    # plt.plot(log_dur_range, counts)
+    # plt.show()
 
     observed_flare_durs = []
 
@@ -137,7 +137,7 @@ def get_flare_durations(observation_duration, verbose=False,
     return 10**np.array(observed_flare_durs) * u.s
 
 
-def inject_flares_total_flux(times):
+def inject_flares_total_flux(times, seed=None):
     """
     Inject flares into a transit light curve at ``times``
 
@@ -156,6 +156,8 @@ def inject_flares_total_flux(times):
     fluxes : `~numpy.ndarray`
         Fluxes with flares added.
     """
+    if seed is not None:
+        np.random.seed(seed)
     halfdur, peakflux = np.loadtxt(trappist_flares_path, unpack=True)
     cadence_dt = times[1] - times[0]
 
@@ -173,7 +175,7 @@ def inject_flares_total_flux(times):
     return flux
 
 
-def inject_flares(wavelengths, times):
+def inject_flares(wavelengths, times, seed=None):
     """
     Inject flares into a transit light curve at ``times`` at ``wavelengths``
 
@@ -194,7 +196,32 @@ def inject_flares(wavelengths, times):
     fluxes : `~numpy.ndarray`
         Fluxes with flares added.
     """
-    total_flux = inject_flares_total_flux(times)
+    total_flux = inject_flares_total_flux(times, seed=seed)
+
+    bb = blackbody_lambda(wavelengths, 10000).value
+    bb_flux_total = np.sum(bb)  # total flux from flare in bandpass
+    return bb / bb_flux_total * total_flux[:, np.newaxis]
+
+
+def inject_example_flare(wavelengths, times, epoch, ind=0):
+    """
+    Inject example flare.
+
+    Assume a 10000 K blackbody for flares.
+
+    Parameters
+    ----------
+    times : `~numpy.ndarray`
+        Times of observations
+
+    Returns
+    -------
+    fluxes : `~numpy.ndarray`
+        Fluxes with flares added.
+    """
+    halfdur, peakflux = np.loadtxt(trappist_flares_path, unpack=True)
+
+    total_flux = flare_flux(times, epoch, peakflux[ind] - 1, halfdur[ind])
 
     bb = blackbody_lambda(wavelengths, 10000).value
     bb_flux_total = np.sum(bb)  # total flux from flare in bandpass

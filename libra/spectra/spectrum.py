@@ -7,7 +7,7 @@ import h5py
 import numpy as np
 from astropy.constants import h, c
 
-__all__ = ['Spectrum1D', 'NIRSpecSpectrum2D', 'ObsArchive',
+__all__ = ['Spectrum1D', 'NIRSpecSpectrum2D', 'ObservationArchive',
            'nirspec_pixel_wavelengths']
 
 bg_path = os.path.join(os.path.dirname(__file__), os.pardir, 'data', 'etc',
@@ -96,7 +96,7 @@ class Spectrum1D(object):
 
         interped_fluxes = self.interp_flux(wavelengths)
 
-        delta_lambda = np.median(np.diff(wavelengths))
+        delta_lambda = np.nanmedian(np.diff(wavelengths))
         n_photons_template = (interped_fluxes * wavelengths / h / c *
                               JWST_aperture_area * delta_lambda *
                               exp_time).decompose().value
@@ -111,15 +111,31 @@ class NIRSpecSpectrum2D(object):
         self.image = fits.getdata(bg_path)
 
 
-class ObsArchive(object):
-    def __init__(self, fname):
-        self.path = os.path.join(outputs_dir, fname)
+class ObservationArchive(object):
+    def __init__(self, fname, mode='r'):
+        self.path = os.path.join(outputs_dir, fname + '.hdf5')
+        self.target_name = fname
         self.archive = None
+        self.mode = mode
 
     def __enter__(self):
-        self.archive = h5py.File(self.path, 'rw+')
+        self.archive = h5py.File(self.path, self.mode)
         return self
 
     def __exit__(self, *args):
         self.archive.close()
-        pass
+
+    def times(self, planet, iteration):
+        return self.archive[planet][iteration]['times']
+
+    def areas(self, planet, iteration):
+        return self.archive[planet][iteration]['spotted_area']
+
+    def spitzer_var(self, planet, iteration):
+        return self.archive[planet][iteration]['spitzer_var']
+
+    def flares(self, planet, iteration):
+        return self.archive[planet][iteration]['flares']
+
+    def fluxes(self, planet, iteration):
+        return self.archive[planet][iteration]['fluxes']

@@ -32,12 +32,13 @@ def spitzer_variability(times, seed=None):
     if seed is not None:
         np.random.seed(seed)
 
-    duration = times[-1] - times[0]
+    duration = times.max() - times.min()
     gp_time, gp_flux = np.loadtxt(gp_path, unpack=True)
-    f = interp1d(gp_time, gp_flux, kind='cubic', bounds_error=False)
+    f = interp1d(gp_time, gp_flux, kind='cubic', bounds_error=False,
+                 fill_value=0)
 
-    if duration > gp_time[-1] - gp_time[0]:
-        raise NotImplementedError
+    if duration > gp_time.max() - gp_time.min():
+        raise NotImplementedError()
 
     t_start = (gp_time.ptp() - duration) * np.random.rand()
     times_from_zero = times - times.min()
