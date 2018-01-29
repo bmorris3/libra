@@ -7,8 +7,8 @@ import h5py
 import numpy as np
 from astropy.constants import h, c
 
-__all__ = ['Spectrum1D', 'NIRSpecSpectrum2D', 'ObservationArchive',
-           'nirspec_pixel_wavelengths']
+__all__ = ['Spectrum1D', 'ObservationArchive', 'nirspec_pixel_wavelengths',
+           'Simulation']
 
 bg_path = os.path.join(os.path.dirname(__file__), os.pardir, 'data', 'etc',
                        'image_detector.fits')
@@ -106,11 +106,6 @@ class Spectrum1D(object):
         return relative_target_flux * n_photons_template
 
 
-class NIRSpecSpectrum2D(object):
-    def __init__(self):
-        self.image = fits.getdata(bg_path)
-
-
 class ObservationArchive(object):
     def __init__(self, fname, mode='r'):
         self.path = os.path.join(outputs_dir, fname + '.hdf5')
@@ -120,22 +115,43 @@ class ObservationArchive(object):
 
     def __enter__(self):
         self.archive = h5py.File(self.path, self.mode)
+
+        for planet in list(self.archive):
+            simulations = []
+            for iteration in list(self.archive[planet]):
+                simulations.append(Simulation(self.archive[planet][iteration]))
+            setattr(self, planet, simulations)
+
         return self
 
     def __exit__(self, *args):
         self.archive.close()
 
-    def times(self, planet, iteration):
-        return self.archive[planet][iteration]['times']
 
-    def areas(self, planet, iteration):
-        return self.archive[planet][iteration]['spotted_area']
+class Simulation(object):
+    def __init__(self, observation):
+        self.observation = observation
 
-    def spitzer_var(self, planet, iteration):
-        return self.archive[planet][iteration]['spitzer_var']
+    @property
+    def times(self):
+        return self.observation['times'][:]
 
-    def flares(self, planet, iteration):
-        return self.archive[planet][iteration]['flares']
+    @property
+    def areas(self):
+        return self.observation['spotted_area'][:]
 
-    def fluxes(self, planet, iteration):
-        return self.archive[planet][iteration]['fluxes']
+    @property
+    def spitzer_var(self):
+        return self.observation['spitzer_var'][:]
+
+    @property
+    def flares(self):
+        return self.observation['flares'][:]
+
+    @property
+    def fluxes(self):
+        return self.observation['fluxes'][:]
+
+    @property
+    def spectra(self):
+        return self.observation['spectra'][:]
