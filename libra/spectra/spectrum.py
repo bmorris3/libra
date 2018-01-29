@@ -155,3 +155,53 @@ class Simulation(object):
     @property
     def spectra(self):
         return self.observation['spectra'][:]
+
+    @property
+    def transit(self):
+        return self.observation['transit'][:]
+
+    def plot(self):
+        wl = nirspec_pixel_wavelengths()
+
+        fig, ax = plt.subplots(2, 4, figsize=(14, 7))
+        ax[0, 0].plot(self.times, self.areas)
+        ax[0, 0].set(xlabel='Time', ylabel='Spotted area')
+
+        ax[0, 1].plot(self.times, self.fluxes)
+        ax[0, 1].set(xlabel='Time', ylabel='Stellar flux')
+
+        monochromatic_flares = np.sum(self.flares, axis=1)
+        monochromatic_flares /= np.median(monochromatic_flares)
+        ax[0, 2].plot(self.times, monochromatic_flares)
+        ax[0, 2].set(xlabel='Time', ylabel='Flare flux')
+
+        ax[0, 3].plot(self.times, np.sum(self.spectra, axis=1), ',')
+        ax[0, 3].set(xlabel='Time', ylabel='NIRSpec counts',
+                     title='Band-integrated')
+
+        ax[1, 0].imshow(self.spectra, extent=[0.6, 5.3, 0, self.times.ptp()])
+        ax[1, 0].set(title='Spectrophotometry', aspect=3/(self.times.ptp()),
+                     xlabel='Wavelength [$\mu$m]', ylabel='Time [d]')
+
+        short_bin = np.sum(self.spectra[:, :100], axis=1)
+        mid_bin = np.sum(self.spectra[:, 100:200], axis=1)
+        long_bin = np.sum(self.spectra[:, 200:], axis=1)
+        ax[1, 1].plot(self.times, long_bin/long_bin.max(), ',', color='C0',
+                      label=r'{0:.2f}-{1:.2f} $\mu$m'
+                      .format(wl[0].value, wl[100].value))
+        ax[1, 2].plot(self.times, mid_bin/mid_bin.max(), ',', color='C2',
+                      label=r'{0:.2f}-{1:.2f} $\mu$m'
+                      .format(wl[100].value, wl[200].value))
+        ax[1, 3].plot(self.times, short_bin/short_bin.max(), ',', color='r',
+                      label=r'{0:.2f}-{1:.2f} $\mu$m'
+                      .format(wl[200].value, wl[-1].value))
+
+        for axis in [ax[1, 1], ax[1, 2], ax[1, 3]]:
+            axis.get_shared_y_axes().join(axis, ax[1, 1])
+            axis.legend()
+            axis.set_xlabel('Time')
+            axis.set_ylabel('Flux')
+
+        fig.tight_layout()
+
+        return fig, ax
