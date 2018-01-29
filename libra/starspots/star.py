@@ -2,7 +2,7 @@
 
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import quad
@@ -14,6 +14,9 @@ from .sun import draw_random_sunspot_latitudes, draw_random_sunspot_radii
 
 __all__ = ['Star', 'Spot']
 
+trappist1_posteriors_path = os.path.join(os.path.dirname(__file__), os.pardir,
+                                         'data', 'trappist1',
+                                         'trappist1_spotmodel_posteriors.txt')
 
 np.random.seed(42)
 
@@ -208,6 +211,19 @@ class Star(object):
         ax.set_xlabel('x [$R_\star$]', fontsize=14)
         ax.set_ylabel('y [$R_\star$]', fontsize=14)
         return ax
+
+    @classmethod
+    def with_trappist1_spot_distribution(cls):
+        samples = np.loadtxt(trappist1_posteriors_path)
+        sample_index = np.random.randint(0, samples.shape[0])
+
+        lat0, lon0, rad0, lat1, lon1, rad1, lat2, lon2, rad2, contrast = samples[sample_index, :]
+
+        spots = [Spot.from_latlon(lat0, lon0, rad0, contrast),
+                 Spot.from_latlon(lat1, lon1, rad1, contrast),
+                 Spot.from_latlon(lat2, lon2, rad2, contrast)]
+
+        return cls(spots=spots, rotation_period=3.3*u.day)
 
     def spotted_area(self, times, t0=0):
         """
