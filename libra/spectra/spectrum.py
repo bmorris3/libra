@@ -119,7 +119,8 @@ class ObservationArchive(object):
         for planet in list(self.archive):
             simulations = []
             for iteration in list(self.archive[planet]):
-                simulations.append(Simulation(self.archive[planet][iteration]))
+                simulations.append(Simulation(self.archive[planet][iteration]))#,
+                                              #attrs=self.archive[planet][iteration].attrs))
             setattr(self, planet, simulations)
 
         return self
@@ -129,8 +130,9 @@ class ObservationArchive(object):
 
 
 class Simulation(object):
-    def __init__(self, observation):
+    def __init__(self, observation, attrs=None):
         self.observation = observation
+        self.attrs = attrs
 
     @property
     def times(self):
@@ -163,7 +165,7 @@ class Simulation(object):
     def plot(self):
         wl = nirspec_pixel_wavelengths()
 
-        fig, ax = plt.subplots(2, 4, figsize=(14, 7))
+        fig, ax = plt.subplots(2, 5, figsize=(14, 6))
         ax[0, 0].plot(self.times, self.areas)
         ax[0, 0].set(xlabel='Time', ylabel='Spotted area')
 
@@ -175,9 +177,11 @@ class Simulation(object):
         ax[0, 2].plot(self.times, monochromatic_flares)
         ax[0, 2].set(xlabel='Time', ylabel='Flare flux')
 
-        ax[0, 3].plot(self.times, np.sum(self.spectra, axis=1), ',')
-        ax[0, 3].set(xlabel='Time', ylabel='NIRSpec counts',
-                     title='Band-integrated')
+        ax[0, 3].plot(self.times, self.spitzer_var)
+        ax[0, 3].set(xlabel='Time', ylabel='Spitzer var.')
+
+        ax[0, 4].plot(self.times, self.transit)
+        ax[0, 4].set(xlabel='Time', ylabel='Transit')
 
         ax[1, 0].imshow(self.spectra, extent=[0.6, 5.3, 0, self.times.ptp()])
         ax[1, 0].set(title='Spectrophotometry', aspect=3/(self.times.ptp()),
@@ -195,6 +199,10 @@ class Simulation(object):
         ax[1, 3].plot(self.times, short_bin/short_bin.max(), ',', color='r',
                       label=r'{0:.2f}-{1:.2f} $\mu$m'
                       .format(wl[200].value, wl[-1].value))
+
+        ax[1, 4].plot(self.times, np.sum(self.spectra, axis=1), ',')
+        ax[1, 4].set(xlabel='Time', ylabel='NIRSpec counts',
+                     title='Band-integrated')
 
         for axis in [ax[1, 1], ax[1, 2], ax[1, 3]]:
             axis.get_shared_y_axes().join(axis, ax[1, 1])

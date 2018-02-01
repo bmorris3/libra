@@ -17,7 +17,8 @@ __all__ = ['Star', 'Spot']
 trappist1_posteriors_path = os.path.join(os.path.dirname(__file__), os.pardir,
                                          'data', 'trappist1',
                                          'trappist1_spotmodel_posteriors.txt')
-
+                                         #'trappist1_spotmodel_posteriors_onehemisphere.txt')
+#'trappist1_spotmodel_posteriors.txt')
 np.random.seed(42)
 
 
