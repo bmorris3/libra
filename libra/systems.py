@@ -122,8 +122,8 @@ def transit_duration(params):
 
 def trappist1_all_transits(times):
     all_params = [trappist1(planet) for planet in list('bcdefgh')]
-    flux = np.zeros(len(times))
+    flux = np.ones(len(times))
     for params in all_params:
         m = batman.TransitModel(params, times)
-        flux *= m.light_curve(params)
+        flux += (m.light_curve(params) - 1)
     return flux
