@@ -16,7 +16,8 @@ __all__ = ['Star', 'Spot']
 
 trappist1_posteriors_path = os.path.join(os.path.dirname(__file__), os.pardir,
                                          'data', 'trappist1',
-                                         'trappist1_spotmodel_posteriors.txt')
+                                         'posteriors_bright_spot.txt')
+                                         #'trappist1_spotmodel_posteriors.txt')
                                          #'trappist1_spotmodel_posteriors_onehemisphere.txt')
 #'trappist1_spotmodel_posteriors.txt')
 np.random.seed(42)
@@ -218,7 +219,7 @@ class Star(object):
         samples = np.loadtxt(trappist1_posteriors_path)
         sample_index = np.random.randint(0, samples.shape[0])
 
-        lat0, lon0, rad0, lat1, lon1, rad1, lat2, lon2, rad2, contrast = samples[sample_index, :]
+        lat0, lon0, rad0, lat1, lon1, rad1, lat2, lon2, rad2, contrast, kep_offset = samples[sample_index, :]
 
         spots = [Spot.from_latlon(lat0, lon0, rad0, contrast),
                  Spot.from_latlon(lat1, lon1, rad1, contrast),
