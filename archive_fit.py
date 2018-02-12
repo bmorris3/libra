@@ -1,8 +1,13 @@
+"""
+Run with
+
+mpirun -np 8 python archive_fit.py
+
+"""
 import numpy as np
 import celerite
 from celerite import terms
 from scipy.optimize import minimize
-
 from libra import (ObservationArchive, mask_simultaneous_transits,
                    transit_model, trappist1)
 
@@ -10,7 +15,8 @@ from celerite.modeling import Model
 from copy import deepcopy
 import emcee
 
-original_params = trappist1('h')
+planet = 'g'
+original_params = trappist1(planet)
 
 
 class MeanModel(Model):
@@ -26,8 +32,7 @@ class MeanModel(Model):
 run_name = 'trappist1_bright'
 output_dir = '/gscratch/stf/bmmorris/libra/'
 
-with ObservationArchive(run_name, 'a', output_dir=output_dir) as obs:
-    planet = 'h'
+with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
     for obs_planet in getattr(obs, planet):
         mask = mask_simultaneous_transits(obs_planet.times, planet)
         obs_time = obs_planet.times[mask]
@@ -94,10 +99,12 @@ with ObservationArchive(run_name, 'a', output_dir=output_dir) as obs:
                 return -np.inf
             return gp.log_likelihood(y) + lp
 
+
         initial = np.array(soln.x)
         ndim, nwalkers = len(initial), len(initial) * 2
+
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
-                                        threads=8)
+                                        threads=16)
 
         print("Running burn-in...")
         p0 = initial + 1e-4 * np.random.randn(nwalkers, ndim)
@@ -105,12 +112,21 @@ with ObservationArchive(run_name, 'a', output_dir=output_dir) as obs:
 
         print("Running production...")
         sampler.reset()
-        sampler.run_mcmc(p0, 5000)
+        sampler.run_mcmc(p0, 1000)
 
         samples_depth = sampler.flatchain[:, -2]
         samples_t0 = sampler.flatchain[:, -1]
+        if not 'samples' in obs.archive[obs_planet.path]:
+            group = obs.archive[obs_planet.path].create_group('samples')
 
-        group = obs.archive[obs_planet.path].create_group('samples')
-        dset0 = group.create_dataset("depth", data=samples_depth, compression='gzip')
-        dset1 = group.create_dataset("t0", data=samples_t0, compression='gzip')
+        else:
+            group = obs.archive[obs_planet.path + 'samples']
+            del group["depth"]
+            del group["t0"]
+
+        dset0 = group.create_dataset("depth", data=samples_depth,
+                                     compression='gzip')
+        dset1 = group.create_dataset("t0", data=samples_t0,
+                                     compression='gzip')
+
         obs.archive.flush()
