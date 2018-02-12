@@ -97,7 +97,7 @@ with ObservationArchive(run_name, 'a', output_dir=output_dir) as obs:
         initial = np.array(soln.x)
         ndim, nwalkers = len(initial), len(initial) * 2
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
-                                        threads=16)
+                                        threads=8)
 
         print("Running burn-in...")
         p0 = initial + 1e-4 * np.random.randn(nwalkers, ndim)
@@ -111,6 +111,6 @@ with ObservationArchive(run_name, 'a', output_dir=output_dir) as obs:
         samples_t0 = sampler.flatchain[:, -1]
 
         group = obs.archive[obs_planet.path].create_group('samples')
-        dset0 = group.create_dataset("depth", data=samples_depth)
-        dset1 = group.create_dataset("t0", data=samples_t0)
+        dset0 = group.create_dataset("depth", data=samples_depth, compression='gzip')
+        dset1 = group.create_dataset("t0", data=samples_t0, compression='gzip')
         obs.archive.flush()
