@@ -16,8 +16,8 @@ bg_path = os.path.join(os.path.dirname(__file__), os.pardir, 'data', 'etc',
 wl_path = os.path.join(os.path.dirname(__file__), os.pardir, 'data', 'etc',
                        'lineplot_wave_pix.fits')
 
-outputs_dir = os.path.join(os.path.dirname(__file__), os.pardir, 'data',
-                           'outputs')
+outputs_dir_path = os.path.join(os.path.dirname(__file__), os.pardir, 'data',
+                                'outputs')
 
 JWST_aperture_area = 25 * u.m**2
 
@@ -107,10 +107,10 @@ class Spectrum1D(object):
 
 
 class ObservationArchive(object):
-    def __init__(self, fname, mode='r', output_dir=None):
+    def __init__(self, fname, mode='r', outputs_dir=None):
 
-        if output_dir is not None:
-            outputs_dir = output_dir
+        if outputs_dir is None:
+            outputs_dir = outputs_dir_path
 
         self.path = os.path.join(outputs_dir, fname + '.hdf5')
         self.target_name = fname
