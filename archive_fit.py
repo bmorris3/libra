@@ -15,8 +15,7 @@ from celerite.modeling import Model
 from copy import deepcopy
 import emcee
 
-planet = 'g'
-original_params = trappist1(planet)
+
 
 
 class MeanModel(Model):
@@ -32,101 +31,115 @@ class MeanModel(Model):
 run_name = 'trappist1_bright'
 output_dir = '/gscratch/stf/bmmorris/libra/'
 
-with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
-    for obs_planet in getattr(obs, planet):
-        mask = mask_simultaneous_transits(obs_planet.times, planet)
-        obs_time = obs_planet.times[mask]
-        obs_flux = np.sum(obs_planet.spectra[mask], axis=1)
-        obs_err = np.sqrt(obs_flux)
+#with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
+with ObservationArchive(run_name, 'a') as obs:
+    for planet in list('bcdefgh'):
+        original_params = trappist1(planet)
 
-        params = trappist1(planet)
+        for obs_planet in getattr(obs, planet):
+            mask = mask_simultaneous_transits(obs_planet.times, planet)
+            obs_time = obs_planet.times[mask]
+            obs_flux = np.sum(obs_planet.spectra[mask], axis=1)
+            obs_err = np.sqrt(obs_flux)
 
-        # plt.plot(obs_time, obs_flux, '.')
+            params = trappist1(planet)
 
-        mid_transit_answer = obs_planet.attrs['t0']
-        # plt.show()
+            # plt.plot(obs_time, obs_flux, '.')
 
-        initp_dict = dict(amp=np.median(obs_flux), depth=original_params.rp**2,
-                          t0=original_params.t0)
+            mid_transit_answer = obs_planet.attrs['t0']
+            # plt.show()
 
-        parameter_bounds = dict(amp=[np.min(obs_flux), np.max(obs_flux)],
-                                depth=[0.5 * original_params.rp**2,
-                                       1.5 * original_params.rp**2],
-                                t0=[original_params.t0 - 0.5,
-                                    original_params.t0 + 0.5])
+            initp_dict = dict(amp=np.median(obs_flux), depth=original_params.rp**2,
+                              t0=original_params.t0)
 
-        mean_model = MeanModel(**initp_dict, bounds=parameter_bounds)
+            parameter_bounds = dict(amp=[np.min(obs_flux), np.max(obs_flux)],
+                                    depth=[0.5 * original_params.rp**2,
+                                           1.5 * original_params.rp**2],
+                                    t0=[original_params.t0 - 0.5,
+                                        original_params.t0 + 0.5])
 
-        x = obs_time
-        y = obs_flux
-        yerr = obs_err/2
+            mean_model = MeanModel(**initp_dict, bounds=parameter_bounds)
 
-        Q = 1.0 / np.sqrt(2.0)
-        w0 = 3.0
-        S0 = 10
+            x = obs_time
+            y = obs_flux
+            yerr = obs_err/2
 
-        bounds = dict(log_S0=(-15, 15), log_Q=(-15, 15), log_omega0=(-15, 15))
-        kernel = terms.SHOTerm(log_S0=np.log(S0), log_Q=np.log(Q),
-                               log_omega0=np.log(w0), bounds=bounds)
+            Q = 1.0 / np.sqrt(2.0)
+            w0 = 3.0
+            S0 = 10
 
-        kernel.freeze_parameter("log_Q")  # We don't want to fit for "Q" in this term
+            bounds = dict(log_S0=(-15, 15), log_Q=(-15, 15), log_omega0=(-15, 15))
+            kernel = terms.SHOTerm(log_S0=np.log(S0), log_Q=np.log(Q),
+                                   log_omega0=np.log(w0), bounds=bounds)
 
-        gp = celerite.GP(kernel, mean=mean_model, fit_mean=True)
-        gp.compute(x, yerr)
-        print("Initial log-likelihood: {0}".format(gp.log_likelihood(y)))
+            kernel.freeze_parameter("log_Q")  # We don't want to fit for "Q" in this term
 
-        # Define a cost function
-        def neg_log_like(params, y, gp):
-            gp.set_parameter_vector(params)
-            return -gp.log_likelihood(y)
+            gp = celerite.GP(kernel, mean=mean_model, fit_mean=True)
+            gp.compute(x, yerr)
+            print("Initial log-likelihood: {0}".format(gp.log_likelihood(y)))
 
-        def grad_neg_log_like(params, y, gp):
-            gp.set_parameter_vector(params)
-            return -gp.grad_log_likelihood(y)[1]
+            # Define a cost function
+            def neg_log_like(params, y, gp):
+                gp.set_parameter_vector(params)
+                return -gp.log_likelihood(y)
 
-        # Fit for the maximum likelihood parameters
-        initial_params = gp.get_parameter_vector()
-        bounds = gp.get_parameter_bounds()
-        soln = minimize(neg_log_like, initial_params, #jac=grad_neg_log_like,
-                        method="L-BFGS-B", bounds=bounds, args=(y, gp))
-        gp.set_parameter_vector(soln.x)
-        print("Final log-likelihood: {0}".format(-soln.fun))
+            def grad_neg_log_like(params, y, gp):
+                gp.set_parameter_vector(params)
+                return -gp.grad_log_likelihood(y)[1]
 
-        def log_probability(params):
-            gp.set_parameter_vector(params)
-            lp = gp.log_prior()
-            if not np.isfinite(lp):
-                return -np.inf
-            return gp.log_likelihood(y) + lp
+            # Fit for the maximum likelihood parameters
+            initial_params = gp.get_parameter_vector()
+            bounds = gp.get_parameter_bounds()
+            soln = minimize(neg_log_like, initial_params, #jac=grad_neg_log_like,
+                            method="L-BFGS-B", bounds=bounds, args=(y, gp))
+            gp.set_parameter_vector(soln.x)
+            print("Final log-likelihood: {0}".format(-soln.fun))
 
+            def log_probability(params):
+                gp.set_parameter_vector(params)
+                lp = gp.log_prior()
+                if not np.isfinite(lp):
+                    return -np.inf
+                return gp.log_likelihood(y) + lp
 
-        initial = np.array(soln.x)
-        ndim, nwalkers = len(initial), len(initial) * 2
+            initial = np.array(soln.x)
+            ndim, nwalkers = len(initial), len(initial) * 2
 
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
-                                        threads=16)
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
+                                            threads=8)
 
-        print("Running burn-in...")
-        p0 = initial + 1e-4 * np.random.randn(nwalkers, ndim)
-        p0, lp, _ = sampler.run_mcmc(p0, 10000)
+            print("Running burn-in...")
+            p0 = initial + 1e-4 * np.random.randn(nwalkers, ndim)
+            p0, lp, _ = sampler.run_mcmc(p0, 10000)
 
-        print("Running production...")
-        sampler.reset()
-        sampler.run_mcmc(p0, 1000)
+            print("Running production...")
+            sampler.reset()
+            sampler.run_mcmc(p0, 1000)
 
-        samples_depth = sampler.flatchain[:, -2]
-        samples_t0 = sampler.flatchain[:, -1]
-        if not 'samples' in obs.archive[obs_planet.path]:
-            group = obs.archive[obs_planet.path].create_group('samples')
+            samples_log_S0 = sampler.flatchain[:, 0]
+            samples_log_omega0 = sampler.flatchain[:, 1]
+            samples_amp = sampler.flatchain[:, 2]
+            samples_depth = sampler.flatchain[:, 3]
+            samples_t0 = sampler.flatchain[:, 4]
+            if not 'samples' in obs.archive[obs_planet.path]:
+                group = obs.archive[obs_planet.path].create_group('samples')
 
-        else:
-            group = obs.archive[obs_planet.path + 'samples']
-            del group["depth"]
-            del group["t0"]
+            else:
+                group = obs.archive[obs_planet.path + 'samples']
+                del group["depth"]
+                del group["t0"]
+                del group["amp"]
+                del group["log_S0"]
+                del group["log_omega0"]
 
-        dset0 = group.create_dataset("depth", data=samples_depth,
-                                     compression='gzip')
-        dset1 = group.create_dataset("t0", data=samples_t0,
-                                     compression='gzip')
-
-        obs.archive.flush()
+            dset0 = group.create_dataset("depth", data=samples_depth,
+                                         compression='gzip')
+            dset1 = group.create_dataset("t0", data=samples_t0,
+                                         compression='gzip')
+            dset2 = group.create_dataset("log_S0", data=samples_log_S0,
+                                         compression='gzip')
+            dset3 = group.create_dataset("log_omega0", data=samples_log_omega0,
+                                         compression='gzip')
+            dset4 = group.create_dataset("amp", data=samples_amp,
+                                         compression='gzip')
+            obs.archive.flush()
