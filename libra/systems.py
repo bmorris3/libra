@@ -12,7 +12,8 @@ luminosities_path = os.path.join(os.path.dirname(__file__), 'data',
 systems = json.load(open(systems_json_path))
 
 __all__ = ['kepler296', 'kepler62', 'trappist1', 'transit_model', 'magnitudes',
-           'luminosities', 'transit_duration', 'trappist1_all_transits']
+           'luminosities', 'transit_duration', 'trappist1_all_transits',
+           'mask_simultaneous_transits']
 
 magnitudes = json.load(open(magnitudes_path, 'r'))
 luminosities = json.load(open(luminosities_path, 'r'))
@@ -127,3 +128,15 @@ def trappist1_all_transits(times):
         m = batman.TransitModel(params, times)
         flux += (m.light_curve(params) - 1)
     return flux
+
+
+def mask_simultaneous_transits(times, planet):
+    all_params = [trappist1(planet) for planet in list('bcdefgh'.replace(planet, ''))]
+    fluxes = []
+    for params in all_params:
+        m = batman.TransitModel(params, times)
+        fluxes.append(m.light_curve(params))
+
+    mask = np.any(np.array(fluxes) != 1, axis=0)
+
+    return np.logical_not(mask)

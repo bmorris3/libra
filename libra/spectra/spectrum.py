@@ -107,7 +107,11 @@ class Spectrum1D(object):
 
 
 class ObservationArchive(object):
-    def __init__(self, fname, mode='r'):
+    def __init__(self, fname, mode='r', output_dir=None):
+
+        if output_dir is not None:
+            outputs_dir = output_dir
+
         self.path = os.path.join(outputs_dir, fname + '.hdf5')
         self.target_name = fname
         self.archive = None
@@ -116,11 +120,16 @@ class ObservationArchive(object):
     def __enter__(self):
         self.archive = h5py.File(self.path, self.mode)
 
-        for planet in list(self.archive):
+        planets = [i for i in list('bcdefgh') if i in self.archive]
+
+        for planet in planets:
             simulations = []
-            for iteration in list(self.archive[planet]):
-                simulations.append(Simulation(self.archive[planet][iteration]))#,
-                                              #attrs=self.archive[planet][iteration].attrs))
+            for iteration in self.archive[planet]:
+                attrs = dict(self.archive[planet][iteration].attrs)
+                simulations.append(Simulation(self.archive[planet][iteration],
+                                              attrs=attrs,
+                                              path="/{0}/{1}/".format(planet,
+                                                                      iteration)))
             setattr(self, planet, simulations)
 
         return self
@@ -130,9 +139,10 @@ class ObservationArchive(object):
 
 
 class Simulation(object):
-    def __init__(self, observation, attrs=None):
+    def __init__(self, observation, attrs=None, path=None):
         self.observation = observation
         self.attrs = attrs
+        self.path = path
 
     @property
     def times(self):
