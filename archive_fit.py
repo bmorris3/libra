@@ -54,16 +54,16 @@ with ObservationArchive(run_name, 'a') as obs:
                               t0=original_params.t0)
 
             parameter_bounds = dict(amp=[np.min(obs_flux), np.max(obs_flux)],
-                                    depth=[0.5 * original_params.rp**2,
-                                           1.5 * original_params.rp**2],
-                                    t0=[original_params.t0 - 0.5,
-                                        original_params.t0 + 0.5])
+                                    depth=[0.9 * original_params.rp**2,
+                                           1.1 * original_params.rp**2],
+                                    t0=[original_params.t0 - 0.2,
+                                        original_params.t0 + 0.2])
 
             mean_model = MeanModel(**initp_dict, bounds=parameter_bounds)
 
             x = obs_time
             y = obs_flux
-            yerr = obs_err/2
+            yerr = obs_err#/2
 
             Q = 1.0 / np.sqrt(2.0)
             w0 = 3.0
