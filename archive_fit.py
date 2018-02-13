@@ -33,10 +33,11 @@ output_dir = '/gscratch/stf/bmmorris/libra/'
 
 #with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
 with ObservationArchive(run_name, 'a') as obs:
-    for planet in list('bcdefgh'):
+    for planet in list('gh'): #list('bcdefgh'):
         original_params = trappist1(planet)
 
         for obs_planet in getattr(obs, planet):
+            print(planet, obs_planet.path)
             mask = mask_simultaneous_transits(obs_planet.times, planet)
             obs_time = obs_planet.times[mask]
             obs_flux = np.sum(obs_planet.spectra[mask], axis=1)
@@ -106,7 +107,7 @@ with ObservationArchive(run_name, 'a') as obs:
             ndim, nwalkers = len(initial), len(initial) * 2
 
             sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
-                                            threads=8)
+                                            threads=4)
 
             print("Running burn-in...")
             p0 = initial + 1e-4 * np.random.randn(nwalkers, ndim)
@@ -126,11 +127,16 @@ with ObservationArchive(run_name, 'a') as obs:
 
             else:
                 group = obs.archive[obs_planet.path + 'samples']
-                del group["depth"]
-                del group["t0"]
-                del group["amp"]
-                del group["log_S0"]
-                del group["log_omega0"]
+                if "depth" in group:
+                    del group["depth"]
+                if 't0' in group: 
+                    del group["t0"]
+                if "amp" in group: 
+                    del group["amp"]
+                if "log_S0" in group: 
+                    del group["log_S0"]
+                if "log_omega0" in group: 
+                    del group["log_omega0"]
 
             dset0 = group.create_dataset("depth", data=samples_depth,
                                          compression='gzip')
