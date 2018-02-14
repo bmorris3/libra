@@ -32,9 +32,9 @@ run_name = 'trappist1_bright'
 output_dir = '/gscratch/stf/bmmorris/libra/'
 
 #with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
-with ObservationArchive(run_name, 'a') as obs:
-    for planet in list('gh'): #list('bcdefgh'):
-        original_params = trappist1(planet)
+for planet in list('h'): #list('bcdefgh'):
+    original_params = trappist1(planet)
+    with ObservationArchive(run_name, 'a') as obs:
 
         for obs_planet in getattr(obs, planet):
             print(planet, obs_planet.path)
@@ -54,26 +54,31 @@ with ObservationArchive(run_name, 'a') as obs:
                               t0=original_params.t0)
 
             parameter_bounds = dict(amp=[np.min(obs_flux), np.max(obs_flux)],
-                                    depth=[0.9 * original_params.rp**2,
-                                           1.1 * original_params.rp**2],
-                                    t0=[original_params.t0 - 0.2,
-                                        original_params.t0 + 0.2])
+                                    depth=[0.5 * original_params.rp**2,
+                                           1.5 * original_params.rp**2],
+                                    t0=[original_params.t0 - 0.1,
+                                        original_params.t0 + 0.1])
 
             mean_model = MeanModel(**initp_dict, bounds=parameter_bounds)
 
             x = obs_time
             y = obs_flux
-            yerr = obs_err#/2
+            yerr = obs_err/2
 
             Q = 1.0 / np.sqrt(2.0)
             w0 = 3.0
             S0 = 10
+            log_cadence = np.log(1/60/60/24)
 
-            bounds = dict(log_S0=(-15, 15), log_Q=(-15, 15), log_omega0=(-15, 15))
+            bounds = dict(log_S0=(-15, 15), log_Q=(-15, 15),
+                          log_omega0=(log_cadence, 15))
             kernel = terms.SHOTerm(log_S0=np.log(S0), log_Q=np.log(Q),
                                    log_omega0=np.log(w0), bounds=bounds)
 
             kernel.freeze_parameter("log_Q")  # We don't want to fit for "Q" in this term
+
+            bounds = dict(log_sigma=(-15, 15), log_rho=(log_cadence, 100))
+            kernel += terms.Matern32Term(log_sigma=0, log_rho=0, bounds=bounds)
 
             gp = celerite.GP(kernel, mean=mean_model, fit_mean=True)
             gp.compute(x, yerr)
@@ -96,6 +101,13 @@ with ObservationArchive(run_name, 'a') as obs:
             gp.set_parameter_vector(soln.x)
             print("Final log-likelihood: {0}".format(-soln.fun))
 
+            skip = 10
+            mu, var = gp.predict(obs_flux, obs_time[::skip], return_var=True)
+            # import matplotlib.pyplot as plt
+            # plt.figure()
+            # plt.plot(obs_time, obs_flux)
+            # plt.plot(obs_time[::skip], mu)
+            # plt.show()
             def log_probability(params):
                 gp.set_parameter_vector(params)
                 lp = gp.log_prior()
@@ -111,17 +123,27 @@ with ObservationArchive(run_name, 'a') as obs:
 
             print("Running burn-in...")
             p0 = initial + 1e-4 * np.random.randn(nwalkers, ndim)
-            p0, lp, _ = sampler.run_mcmc(p0, 10000)
+            #p0, lp, _ = sampler.run_mcmc(p0, 10000)
+            p0, lp, _ = sampler.run_mcmc(p0, 2000)
 
             print("Running production...")
             sampler.reset()
             sampler.run_mcmc(p0, 1000)
 
+
+            # from corner import corner
+            #
+            # corner(sampler.flatchain)
+            # plt.show()
+
             samples_log_S0 = sampler.flatchain[:, 0]
             samples_log_omega0 = sampler.flatchain[:, 1]
-            samples_amp = sampler.flatchain[:, 2]
-            samples_depth = sampler.flatchain[:, 3]
-            samples_t0 = sampler.flatchain[:, 4]
+            samples_log_sigma = sampler.flatchain[:, 2]
+            samples_log_rho = sampler.flatchain[:, 3]
+
+            samples_amp = sampler.flatchain[:, 4]
+            samples_depth = sampler.flatchain[:, 5]
+            samples_t0 = sampler.flatchain[:, 6]
             if not 'samples' in obs.archive[obs_planet.path]:
                 group = obs.archive[obs_planet.path].create_group('samples')
 
@@ -137,6 +159,10 @@ with ObservationArchive(run_name, 'a') as obs:
                     del group["log_S0"]
                 if "log_omega0" in group: 
                     del group["log_omega0"]
+                if "log_sigma" in group:
+                    del group["log_sigma"]
+                if "log_rho" in group:
+                    del group["log_rho"]
 
             dset0 = group.create_dataset("depth", data=samples_depth,
                                          compression='gzip')
@@ -147,5 +173,9 @@ with ObservationArchive(run_name, 'a') as obs:
             dset3 = group.create_dataset("log_omega0", data=samples_log_omega0,
                                          compression='gzip')
             dset4 = group.create_dataset("amp", data=samples_amp,
+                                         compression='gzip')
+            dset5 = group.create_dataset("log_sigma", data=samples_log_sigma,
+                                         compression='gzip')
+            dset6 = group.create_dataset("log_rho", data=samples_log_rho,
                                          compression='gzip')
             obs.archive.flush()

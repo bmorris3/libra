@@ -169,8 +169,39 @@ class Simulation(object):
         return self.observation['spectra'][:]
 
     @property
-    def transit(self):
-        return self.observation['transit'][:]
+    def samples_depth(self):
+        return self.observation['samples/depth'][:]
+
+    @property
+    def samples_t0(self):
+        return self.observation['samples/t0'][:]
+
+    @property
+    def samples_amp(self):
+        return self.observation['samples/amp'][:]
+
+    @property
+    def samples_log_S0(self):
+        return self.observation['samples/log_S0'][:]
+
+    @property
+    def samples_log_omega0(self):
+        return self.observation['samples/log_omega0'][:]
+
+    @property
+    def samples_log_sigma(self):
+        return self.observation['samples/log_sigma'][:]
+
+    @property
+    def samples_log_rho(self):
+        return self.observation['samples/log_rho'][:]
+
+    @property
+    def samples_median(self):
+        samples = (self.samples_log_S0, self.samples_log_omega0,
+                   self.samples_log_sigma, self.samples_log_rho,
+                   self.samples_amp, self.samples_depth, self.samples_t0)
+        return np.array([np.median(s) for s in samples])
 
     def plot(self):
         wl = nirspec_pixel_wavelengths()
