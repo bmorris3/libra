@@ -188,18 +188,10 @@ class Simulation(object):
     def samples_log_omega0(self):
         return self.observation['samples/log_omega0'][:]
 
-    @property
-    def samples_log_sigma(self):
-        return self.observation['samples/log_sigma'][:]
-
-    @property
-    def samples_log_rho(self):
-        return self.observation['samples/log_rho'][:]
 
     @property
     def samples_median(self):
         samples = (self.samples_log_S0, self.samples_log_omega0,
-                   self.samples_log_sigma, self.samples_log_rho,
                    self.samples_amp, self.samples_depth, self.samples_t0)
         return np.array([np.median(s) for s in samples])
 

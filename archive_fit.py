@@ -32,7 +32,7 @@ run_name = 'trappist1_bright'
 output_dir = '/gscratch/stf/bmmorris/libra/'
 
 #with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
-for planet in list('h'): #list('bcdefgh'):
+for planet in list('bcdefgh'):
     original_params = trappist1(planet)
     with ObservationArchive(run_name, 'a') as obs:
 
@@ -66,19 +66,16 @@ for planet in list('h'): #list('bcdefgh'):
             yerr = obs_err/2
 
             Q = 1.0 / np.sqrt(2.0)
-            w0 = 3.0
+            log_w0 = 5#3.0
             S0 = 10
-            log_cadence = np.log(1/60/60/24)
+            log_cadence = np.log(2*np.pi/(1/60/24))
 
             bounds = dict(log_S0=(-15, 15), log_Q=(-15, 15),
-                          log_omega0=(log_cadence, 15))
+                          log_omega0=(None, log_cadence))
             kernel = terms.SHOTerm(log_S0=np.log(S0), log_Q=np.log(Q),
-                                   log_omega0=np.log(w0), bounds=bounds)
+                                   log_omega0=log_w0, bounds=bounds)
 
             kernel.freeze_parameter("log_Q")  # We don't want to fit for "Q" in this term
-
-            bounds = dict(log_sigma=(-15, 15), log_rho=(log_cadence, 100))
-            kernel += terms.Matern32Term(log_sigma=0, log_rho=0, bounds=bounds)
 
             gp = celerite.GP(kernel, mean=mean_model, fit_mean=True)
             gp.compute(x, yerr)
@@ -101,13 +98,16 @@ for planet in list('h'): #list('bcdefgh'):
             gp.set_parameter_vector(soln.x)
             print("Final log-likelihood: {0}".format(-soln.fun))
 
-            skip = 10
-            mu, var = gp.predict(obs_flux, obs_time[::skip], return_var=True)
+            # skip = 10
+            # mu, var = gp.predict(obs_flux, obs_time[::skip], return_var=True)
+            # std = np.sqrt(var)
             # import matplotlib.pyplot as plt
             # plt.figure()
             # plt.plot(obs_time, obs_flux)
-            # plt.plot(obs_time[::skip], mu)
+            # plt.plot(obs_time[::skip], mu, color='r')
+            # plt.fill_between(obs_time[::skip], mu-std, mu+std, alpha=0.5, color='r')
             # plt.show()
+
             def log_probability(params):
                 gp.set_parameter_vector(params)
                 lp = gp.log_prior()
@@ -123,27 +123,32 @@ for planet in list('h'): #list('bcdefgh'):
 
             print("Running burn-in...")
             p0 = initial + 1e-4 * np.random.randn(nwalkers, ndim)
-            #p0, lp, _ = sampler.run_mcmc(p0, 10000)
-            p0, lp, _ = sampler.run_mcmc(p0, 2000)
+            p0, lp, _ = sampler.run_mcmc(p0, 10000)
+            #p0, lp, _ = sampler.run_mcmc(p0, 2000)
 
             print("Running production...")
             sampler.reset()
             sampler.run_mcmc(p0, 1000)
-
 
             # from corner import corner
             #
             # corner(sampler.flatchain)
             # plt.show()
 
+            #
+            # skip = 10
+            # mu, var = gp.predict(obs_flux, obs_time[::skip], return_var=True)
+            # std = np.sqrt(var)
+            # plt.errorbar(obs_time, obs_flux, obs_err, fmt='.', color='k', ecolor='silver', ms=2, alpha=0.5)
+            # plt.plot(obs_time[::skip], mu, 'r', zorder=10)
+            # plt.show()
+
             samples_log_S0 = sampler.flatchain[:, 0]
             samples_log_omega0 = sampler.flatchain[:, 1]
-            samples_log_sigma = sampler.flatchain[:, 2]
-            samples_log_rho = sampler.flatchain[:, 3]
 
-            samples_amp = sampler.flatchain[:, 4]
-            samples_depth = sampler.flatchain[:, 5]
-            samples_t0 = sampler.flatchain[:, 6]
+            samples_amp = sampler.flatchain[:, 2]
+            samples_depth = sampler.flatchain[:, 3]
+            samples_t0 = sampler.flatchain[:, 4]
             if not 'samples' in obs.archive[obs_planet.path]:
                 group = obs.archive[obs_planet.path].create_group('samples')
 
@@ -159,10 +164,6 @@ for planet in list('h'): #list('bcdefgh'):
                     del group["log_S0"]
                 if "log_omega0" in group: 
                     del group["log_omega0"]
-                if "log_sigma" in group:
-                    del group["log_sigma"]
-                if "log_rho" in group:
-                    del group["log_rho"]
 
             dset0 = group.create_dataset("depth", data=samples_depth,
                                          compression='gzip')
@@ -173,9 +174,5 @@ for planet in list('h'): #list('bcdefgh'):
             dset3 = group.create_dataset("log_omega0", data=samples_log_omega0,
                                          compression='gzip')
             dset4 = group.create_dataset("amp", data=samples_amp,
-                                         compression='gzip')
-            dset5 = group.create_dataset("log_sigma", data=samples_log_sigma,
-                                         compression='gzip')
-            dset6 = group.create_dataset("log_rho", data=samples_log_rho,
                                          compression='gzip')
             obs.archive.flush()
