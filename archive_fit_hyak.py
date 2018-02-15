@@ -14,8 +14,8 @@ from libra import (ObservationArchive, mask_simultaneous_transits,
 from celerite.modeling import Model
 from copy import deepcopy
 import emcee
-
-
+from emcee.utils import MPIPool
+import sys
 
 
 class MeanModel(Model):
@@ -32,7 +32,7 @@ run_name = 'trappist1_bright'
 output_dir = '/gscratch/stf/bmmorris/libra/'
 
 #with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
-for planet in list('bcdefgh'):
+for planet in list('f'): #list('bcdefgh'):
     original_params = trappist1(planet)
     with ObservationArchive(run_name, 'a') as obs:
 
@@ -69,7 +69,7 @@ for planet in list('bcdefgh'):
             log_w0 = 5#3.0
             S0 = 10
             log_cadence = np.log(2*np.pi/(1/60/24))
-
+            print(log_cadence)
             bounds = dict(log_S0=(-15, 15), log_Q=(-15, 15),
                           log_omega0=(None, log_cadence))
             kernel = terms.SHOTerm(log_S0=np.log(S0), log_Q=np.log(Q),
@@ -98,15 +98,9 @@ for planet in list('bcdefgh'):
             gp.set_parameter_vector(soln.x)
             print("Final log-likelihood: {0}".format(-soln.fun))
 
-            # skip = 10
-            # mu, var = gp.predict(obs_flux, obs_time[::skip], return_var=True)
-            # std = np.sqrt(var)
-            # import matplotlib.pyplot as plt
-            # plt.figure()
-            # plt.plot(obs_time, obs_flux)
-            # plt.plot(obs_time[::skip], mu, color='r')
-            # plt.fill_between(obs_time[::skip], mu-std, mu+std, alpha=0.5, color='r')
-            # plt.show()
+            skip = 10
+            mu, var = gp.predict(obs_flux, obs_time[::skip], return_var=True)
+            std = np.sqrt(var)
 
             def log_probability(params):
                 gp.set_parameter_vector(params)
@@ -118,8 +112,13 @@ for planet in list('bcdefgh'):
             initial = np.array(soln.x)
             ndim, nwalkers = len(initial), len(initial) * 2
 
+            pool = MPIPool()
+            if not pool.is_master():
+                pool.wait()
+                sys.exit(0)
+
             sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
-                                            threads=4)
+                                            pool=pool)
 
             print("Running burn-in...")
             p0 = initial + 1e-4 * np.random.randn(nwalkers, ndim)
@@ -129,19 +128,7 @@ for planet in list('bcdefgh'):
             print("Running production...")
             sampler.reset()
             sampler.run_mcmc(p0, 1000)
-
-            # from corner import corner
-            #
-            # corner(sampler.flatchain)
-            # plt.show()
-
-            #
-            # skip = 10
-            # mu, var = gp.predict(obs_flux, obs_time[::skip], return_var=True)
-            # std = np.sqrt(var)
-            # plt.errorbar(obs_time, obs_flux, obs_err, fmt='.', color='k', ecolor='silver', ms=2, alpha=0.5)
-            # plt.plot(obs_time[::skip], mu, 'r', zorder=10)
-            # plt.show()
+            pool.close()
 
             samples_log_S0 = sampler.flatchain[:, 0]
             samples_log_omega0 = sampler.flatchain[:, 1]
@@ -156,13 +143,13 @@ for planet in list('bcdefgh'):
                 group = obs.archive[obs_planet.path + 'samples']
                 if "depth" in group:
                     del group["depth"]
-                if 't0' in group: 
+                if 't0' in group:
                     del group["t0"]
-                if "amp" in group: 
+                if "amp" in group:
                     del group["amp"]
-                if "log_S0" in group: 
+                if "log_S0" in group:
                     del group["log_S0"]
-                if "log_omega0" in group: 
+                if "log_omega0" in group:
                     del group["log_omega0"]
 
             dset0 = group.create_dataset("depth", data=samples_depth,
