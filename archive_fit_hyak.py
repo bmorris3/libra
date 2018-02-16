@@ -63,16 +63,19 @@ with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
 
         x = obs_time
         y = obs_flux
-        yerr = obs_err/2
+        yerr = obs_err
 
         Q = 1.0 / np.sqrt(2.0)
-        log_w0 = 5#3.0
-        S0 = 10
-        log_cadence = np.log(2*np.pi/(1/60/24))
-        print(log_cadence)
-        bounds = dict(log_S0=(-15, 15), log_Q=(-15, 15),
-                      log_omega0=(None, log_cadence))
-        kernel = terms.SHOTerm(log_S0=np.log(S0), log_Q=np.log(Q),
+        log_w0 = 5 #3.0
+        log_S0 = 10
+
+        log_cadence_min = None # np.log(2*np.pi/(2./24))
+        log_cadence_max = np.log(2*np.pi/(0.25/24))
+
+        bounds = dict(log_S0=(-15, 30), log_Q=(-15, 15),
+                      log_omega0=(log_cadence_min, log_cadence_max))
+
+        kernel = terms.SHOTerm(log_S0=log_S0, log_Q=np.log(Q),
                                log_omega0=log_w0, bounds=bounds)
 
         kernel.freeze_parameter("log_Q")  # We don't want to fit for "Q" in this term
@@ -97,10 +100,6 @@ with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
                         method="L-BFGS-B", bounds=bounds, args=(y, gp))
         gp.set_parameter_vector(soln.x)
         print("Final log-likelihood: {0}".format(-soln.fun))
-
-        skip = 10
-        mu, var = gp.predict(obs_flux, obs_time[::skip], return_var=True)
-        std = np.sqrt(var)
 
         def log_probability(params):
             gp.set_parameter_vector(params)
@@ -135,30 +134,34 @@ with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
         samples_amp = sampler.flatchain[:, 2]
         samples_depth = sampler.flatchain[:, 3]
         samples_t0 = sampler.flatchain[:, 4]
-        if not 'samples' in obs.archive[obs_planet.path]:
-            group = obs.archive[obs_planet.path].create_group('samples')
 
-        else:
-            group = obs.archive[obs_planet.path + 'samples']
-            if "depth" in group:
-                del group["depth"]
-            if 't0' in group:
-                del group["t0"]
-            if "amp" in group:
-                del group["amp"]
-            if "log_S0" in group:
-                del group["log_S0"]
-            if "log_omega0" in group:
-                del group["log_omega0"]
+        try:
+            if not 'samples' in obs.archive[obs_planet.path]:
+                group = obs.archive[obs_planet.path].create_group('samples')
 
-        dset0 = group.create_dataset("depth", data=samples_depth,
-                                     compression='gzip')
-        dset1 = group.create_dataset("t0", data=samples_t0,
-                                     compression='gzip')
-        dset2 = group.create_dataset("log_S0", data=samples_log_S0,
-                                     compression='gzip')
-        dset3 = group.create_dataset("log_omega0", data=samples_log_omega0,
-                                     compression='gzip')
-        dset4 = group.create_dataset("amp", data=samples_amp,
-                                     compression='gzip')
-        obs.archive.flush()
+            else:
+                group = obs.archive[obs_planet.path + 'samples']
+                if "depth" in group:
+                    del group["depth"]
+                if 't0' in group:
+                    del group["t0"]
+                if "amp" in group:
+                    del group["amp"]
+                if "log_S0" in group:
+                    del group["log_S0"]
+                if "log_omega0" in group:
+                    del group["log_omega0"]
+
+            dset0 = group.create_dataset("depth", data=samples_depth,
+                                         compression='gzip')
+            dset1 = group.create_dataset("t0", data=samples_t0,
+                                         compression='gzip')
+            dset2 = group.create_dataset("log_S0", data=samples_log_S0,
+                                         compression='gzip')
+            dset3 = group.create_dataset("log_omega0", data=samples_log_omega0,
+                                         compression='gzip')
+            dset4 = group.create_dataset("amp", data=samples_amp,
+                                         compression='gzip')
+            obs.archive.flush()
+        except KeyError:
+            print('KeyError passing: {0}'.format(obs_planet.path))
