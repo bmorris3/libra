@@ -107,7 +107,7 @@ class Spectrum1D(object):
 
 
 class ObservationArchive(object):
-    def __init__(self, fname, mode='r', outputs_dir=None):
+    def __init__(self, fname, mode='r', outputs_dir=None, comm=None, driver=None):
 
         if outputs_dir is None:
             outputs_dir = outputs_dir_path
@@ -116,9 +116,12 @@ class ObservationArchive(object):
         self.target_name = fname
         self.archive = None
         self.mode = mode
+        self.comm = comm
+        self.driver = driver
 
     def __enter__(self):
-        self.archive = h5py.File(self.path, self.mode)
+        self.archive = h5py.File(self.path, self.mode, comm=self.comm,
+                                 driver=self.driver)
 
         planets = [i for i in list('bcdefgh') if i in self.archive]
 

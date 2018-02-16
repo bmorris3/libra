@@ -34,7 +34,11 @@ output_dir = '/gscratch/stf/bmmorris/libra/'
 
 #with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
 original_params = trappist1(planet)
-with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
+
+from mpi4py import MPI
+
+with ObservationArchive(run_name, 'a', outputs_dir=output_dir,
+                        comm=MPI.COMM_WORLD, driver='mpio') as obs:
 
     for obs_planet in getattr(obs, planet):
         print(planet, obs_planet.path)
@@ -53,13 +57,13 @@ with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
         initp_dict = dict(amp=np.median(obs_flux), depth=original_params.rp**2,
                           t0=original_params.t0)
 
-        parameter_bounds = dict(amp=[np.min(obs_flux), np.max(obs_flux)],
+        parameter_bounds = dict(amp=[0.9*np.min(obs_flux), 1.1*np.max(obs_flux)],
                                 depth=[0.5 * original_params.rp**2,
                                        1.5 * original_params.rp**2],
                                 t0=[original_params.t0 - 0.1,
                                     original_params.t0 + 0.1])
 
-        mean_model = MeanModel(**initp_dict, bounds=parameter_bounds)
+        mean_model = MeanModel(bounds=parameter_bounds, **initp_dict)
 
         x = obs_time
         y = obs_flux
@@ -121,7 +125,7 @@ with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
 
         print("Running burn-in...")
         p0 = initial + 1e-4 * np.random.randn(nwalkers, ndim)
-        p0, lp, _ = sampler.run_mcmc(p0, 10000)
+        p0, lp, _ = sampler.run_mcmc(p0, 5000)
 
         print("Running production...")
         sampler.reset()
