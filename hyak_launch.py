@@ -98,7 +98,7 @@ cd $PBS_O_WORKDIR
 mpiexec.hydra -n $HYAK_NPE python {run_script} {planet_letter}
 """
 
-def launch_hyak_run(planets, run_script, run_dir, job_name='friedrich',
+def launch_hyak_run(planets, run_script, run_dir, job_name='libra',
                     log_dir='/gscratch/stf/bmmorris/libra/logs',
                     submit_script_dir='/gscratch/stf/bmmorris/libra/submit_scripts'):
 
@@ -120,3 +120,5 @@ def launch_hyak_run(planets, run_script, run_dir, job_name='friedrich',
         with open(submit_script_path, 'w') as f:
             f.write(submit_script)
         os.system('qsub {0}'.format(submit_script_path))
+
+launch_hyak_run(list('bcdefgh'), '/usr/lusers/bmmorris/git/libra/archive_fit_hyak.py', '/usr/lusers/bmmorris/git/libra/')

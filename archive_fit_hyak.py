@@ -34,7 +34,7 @@ output_dir = '/gscratch/stf/bmmorris/libra/'
 
 #with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
 original_params = trappist1(planet)
-with ObservationArchive(run_name, 'a') as obs:
+with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
 
     for obs_planet in getattr(obs, planet):
         print(planet, obs_planet.path)
