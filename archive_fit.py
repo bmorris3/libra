@@ -66,16 +66,19 @@ for planet in list('h'):
 
             x = obs_time
             y = obs_flux
-            yerr = obs_err/2
+            yerr = obs_err
 
             Q = 1.0 / np.sqrt(2.0)
-            log_w0 = 5#3.0
-            S0 = 10
-            log_cadence = np.log(2*np.pi/(1/60/24))
+            log_w0 = 5 #3.0
+            log_S0 = 10
 
-            bounds = dict(log_S0=(-15, 15), log_Q=(-15, 15),
-                          log_omega0=(None, log_cadence))
-            kernel = terms.SHOTerm(log_S0=np.log(S0), log_Q=np.log(Q),
+            log_cadence_min = None # np.log(2*np.pi/(2./24))
+            log_cadence_max = np.log(2*np.pi/(0.25/24))
+
+            bounds = dict(log_S0=(-15, 30), log_Q=(-15, 15),
+                          log_omega0=(log_cadence_min, log_cadence_max))
+
+            kernel = terms.SHOTerm(log_S0=log_S0, log_Q=np.log(Q),
                                    log_omega0=log_w0, bounds=bounds)
 
             kernel.freeze_parameter("log_Q")  # We don't want to fit for "Q" in this term
