@@ -3,7 +3,6 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import os
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import quad
 import astropy.units as u
@@ -198,6 +197,8 @@ class Star(object):
         ax : `~matplotlib.pyplot.Axes`
             Matplotlib axis object, with the new plot on it.
         """
+        import matplotlib.pyplot as plt
+
         if ax is None:
             ax = plt.gca()
 

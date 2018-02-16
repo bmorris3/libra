@@ -34,7 +34,7 @@ def spitzer_variability(times, seed=None):
 
     duration = times.max() - times.min()
     gp_time, gp_flux = np.loadtxt(gp_path, unpack=True)
-    f = interp1d(gp_time, gp_flux, kind='cubic', bounds_error=False,
+    f = interp1d(gp_time, gp_flux, kind='linear', bounds_error=False,
                  fill_value=0)
 
     if duration > gp_time.max() - gp_time.min():
