@@ -1,5 +1,4 @@
 from scipy.interpolate import interp1d
-import matplotlib.pyplot as plt
 import os
 from astropy.io import fits
 import astropy.units as u
@@ -35,6 +34,7 @@ class Spectrum1D(object):
         self.t_eff = t_eff
 
     def plot(self, ax=None, **kwargs):
+        import matplotlib.pyplot as plt
         if ax is None:
             ax = plt.gca()
 
@@ -116,7 +116,7 @@ class ObservationArchive(object):
         self.target_name = fname
         self.archive = None
         self.mode = mode
-        
+
     def __enter__(self):
         self.archive = h5py.File(self.path, self.mode)
 
