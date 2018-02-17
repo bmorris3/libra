@@ -57,8 +57,7 @@ export MX_RCACHE=0
 ## LOAD any appropriate environment modules and variables
 module load gcc_4.4.7-impi_5.1.2
 module load anaconda3_4.2
-
-source activate my_root
+module load parallel-20170722
 
 ### Debugging information
 ### Include your job logs which contain output from the below commands
@@ -91,34 +90,57 @@ ulimit -v $MEMPERTASK
 ## RUN your specific applications/scripts/code here
 ## --------------------------------------------------------
 
+source activate my_root
+
 ## CHANGE directory to where job was submitted
 ## (careful, PBS defaults to user home directory)
 cd $PBS_O_WORKDIR
 
-mpiexec.hydra -n $HYAK_NPE python {run_script} {planet_letter}
+conda activate libraenv
+which python
+cat launchscript.sh | parallel -j 16
 """
 
 def launch_hyak_run(planets, run_script, run_dir, job_name='libra',
                     log_dir='/gscratch/stf/bmmorris/libra/logs',
                     submit_script_dir='/gscratch/stf/bmmorris/libra/submit_scripts'):
 
-    for planet_letter in planets:
-        walltime = '04:00:00'
-        email = 'bmmorris@uw.edu'
+    # for planet_letter in planets:
+    #     walltime = '04:00:00'
+    #     email = 'bmmorris@uw.edu'
+    #
+    #     submit_script_name = 'submit_script_{0}.sh'.format(planet_letter)
+    #
+    #     submit_script = submit_template.format(job_name=job_name,
+    #                                            run_dir=run_dir,
+    #                                            log_dir=log_dir,
+    #                                            walltime=walltime,
+    #                                            email=email,
+    #                                            run_script=run_script,
+    #                                            planet_letter=planet_letter)
+    #
+    #     submit_script_path = os.path.join(submit_script_dir, submit_script_name)
+    #     with open(submit_script_path, 'w') as f:
+    #         f.write(submit_script)
+    #     os.system('qsub {0}'.format(submit_script_path))
 
-        submit_script_name = 'submit_script_{0}.sh'.format(planet_letter)
+    walltime = '04:00:00'
+    email = 'bmmorris@uw.edu'
+    with open('launchscript.sh', 'w') as w:
+        for planet_letter in planets:
+            w.write('python {0} {1}\n'.format(run_script, planet_letter))
 
-        submit_script = submit_template.format(job_name=job_name,
-                                               run_dir=run_dir,
-                                               log_dir=log_dir,
-                                               walltime=walltime,
-                                               email=email,
-                                               run_script=run_script,
-                                               planet_letter=planet_letter)
+    submit_script = submit_template.format(job_name=job_name,
+                                           run_dir=run_dir,
+                                           log_dir=log_dir,
+                                           walltime=walltime,
+                                           email=email,
+                                           run_script=run_script,
+                                           planet_letter=planet_letter)
 
-        submit_script_path = os.path.join(submit_script_dir, submit_script_name)
-        with open(submit_script_path, 'w') as f:
-            f.write(submit_script)
-        os.system('qsub {0}'.format(submit_script_path))
+    submit_script_path = os.path.join(submit_script_dir, "gnu_parallel_job.sh")
+    with open(submit_script_path, 'w') as f:
+        f.write(submit_script)
+    os.system('qsub {0}'.format(submit_script_path))
 
 launch_hyak_run(list('bcdefgh'), '/usr/lusers/bmmorris/git/libra/archive_fit_hyak.py', '/usr/lusers/bmmorris/git/libra/')

@@ -19,6 +19,7 @@ import sys
 
 planet = sys.argv[1]
 
+
 class MeanModel(Model):
     parameter_names = ['amp', 'depth', 't0']
 
@@ -35,10 +36,7 @@ output_dir = '/gscratch/stf/bmmorris/libra/'
 #with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
 original_params = trappist1(planet)
 
-from mpi4py import MPI
-
-with ObservationArchive(run_name, 'a', outputs_dir=output_dir,
-                        comm=MPI.COMM_WORLD, driver='mpio') as obs:
+with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
 
     for obs_planet in getattr(obs, planet):
         print(planet, obs_planet.path)
@@ -115,22 +113,22 @@ with ObservationArchive(run_name, 'a', outputs_dir=output_dir,
         initial = np.array(soln.x)
         ndim, nwalkers = len(initial), len(initial) * 2
 
-        pool = MPIPool()
-        if not pool.is_master():
-            pool.wait()
-            sys.exit(0)
+        # pool = MPIPool()
+        # if not pool.is_master():
+        #     pool.wait()
+        #     sys.exit(0)
 
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
-                                        pool=pool)
+                                        threads=16)
 
         print("Running burn-in...")
         p0 = initial + 1e-4 * np.random.randn(nwalkers, ndim)
-        p0, lp, _ = sampler.run_mcmc(p0, 5000)
+        p0, lp, _ = sampler.run_mcmc(p0, 2000)
 
         print("Running production...")
         sampler.reset()
         sampler.run_mcmc(p0, 1000)
-        pool.close()
+        #pool.close()
 
         samples_log_S0 = sampler.flatchain[:, 0]
         samples_log_omega0 = sampler.flatchain[:, 1]
