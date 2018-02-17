@@ -56,8 +56,6 @@ export MX_RCACHE=0
 
 ## LOAD any appropriate environment modules and variables
 module load gcc_4.4.7-impi_5.1.2
-module load anaconda3_4.2
-module load parallel-20170722
 
 ### Debugging information
 ### Include your job logs which contain output from the below commands
@@ -90,12 +88,11 @@ ulimit -v $MEMPERTASK
 ## RUN your specific applications/scripts/code here
 ## --------------------------------------------------------
 
-source activate my_root
-
 ## CHANGE directory to where job was submitted
 ## (careful, PBS defaults to user home directory)
 cd $PBS_O_WORKDIR
 
+echo "which python:"
 which python
 python archive_fit_hyak.py {planet_letter}
 """
