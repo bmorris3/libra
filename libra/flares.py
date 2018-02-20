@@ -4,7 +4,8 @@ import astropy.units as u
 from scipy.stats import poisson
 from astropy.modeling.blackbody import blackbody_lambda
 
-__all__ = ['flare_flux', 'inject_flares', 'inject_example_flare']
+__all__ = ['flare_flux', 'inject_flares', 'inject_example_flare',
+           'inject_microflares']
 
 trappist_ffd_path = os.path.join(os.path.dirname(__file__), 'data', 'flares',
                                  'trappist1_ffd_davenport.csv')
@@ -197,6 +198,72 @@ def inject_flares(wavelengths, times, seed=None):
         Fluxes with flares added.
     """
     total_flux = inject_flares_total_flux(times, seed=seed)
+
+    bb = blackbody_lambda(wavelengths, 10000).value
+    bb_flux_total = np.sum(bb)  # total flux from flare in bandpass
+    return bb / bb_flux_total * total_flux[:, np.newaxis]
+
+
+def inject_microflares_total_flux(times, seed=None):
+    """
+    Inject flares into a transit light curve at ``times``
+
+    Model the flare rate as a Poisson process with rate parameter set by the
+    K2 flare frequency - 11 flares in 78.8 days. Draw random variates from that
+    Poisson distribution and assign properties to the flares from the K2
+    observations.
+
+    Parameters
+    ----------
+    times : `~numpy.ndarray`
+        Times of observations
+
+    Returns
+    -------
+    fluxes : `~numpy.ndarray`
+        Fluxes with flares added.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    #halfdur, peakflux = np.loadtxt(trappist_flares_path, unpack=True)
+    cadence_dt = times[1] - times[0]
+
+    #flare_rate = cadence_dt * 1  # flare rate observed by K2
+    #r = poisson.rvs(flare_rate, size=times.shape[0])
+    #n_flares = np.sum(r)
+    #flare_times = times[r.astype(bool)]
+    n_flares = 3
+    flare_times = (times[-1] - times[0])*np.random.rand(n_flares) + times[0]
+
+    flux = np.zeros(len(times))
+
+    for i in range(n_flares):
+        flux += flare_flux(times, flare_times[i], 0.5, 1/60/24)
+    return flux
+
+
+def inject_microflares(wavelengths, times, seed=None):
+    """
+    Inject flares into a transit light curve at ``times`` at ``wavelengths``
+
+    Model the flare rate as a Poisson process with rate parameter set by the
+    K2 flare frequency - 11 flares in 78.8 days. Draw random variates from that
+    Poisson distribution and assign properties to the flares from the K2
+    observations.
+
+    Assume a 10000 K blackbody for flares.
+
+    Parameters
+    ----------
+    times : `~numpy.ndarray`
+        Times of observations
+
+    Returns
+    -------
+    fluxes : `~numpy.ndarray`
+        Fluxes with flares added.
+    """
+    total_flux = inject_microflares_total_flux(times, seed=seed)
 
     bb = blackbody_lambda(wavelengths, 10000).value
     bb_flux_total = np.sum(bb)  # total flux from flare in bandpass
