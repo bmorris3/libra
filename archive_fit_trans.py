@@ -35,14 +35,16 @@ bin_width = len(wavelengths) // n_bins
 bin_centers = np.array([wavelengths[i*bin_width:(i+1)*bin_width].mean().value
                         for i in range(n_bins)])
 
-run_name = 'trappist1_transmission'
+run_name = 'trappist1_bright2'
 
 bin_results = []
 bin_results_errs = []
 
-with ObservationArchive(run_name, 'r') as obs:
-    planet = 'b'
-    for obs_planet in getattr(obs, planet)[3:]:
+import sys
+planet = sys.argv[1]
+
+with ObservationArchive(run_name + '_' + planet, 'r') as obs:
+    for obs_planet in getattr(obs, planet):
         results = []
         errs = []
         mask = mask_simultaneous_transits(obs_planet.times, planet)
@@ -99,10 +101,10 @@ with ObservationArchive(run_name, 'r') as obs:
             depths_errs.append(np.std(samples[:, -1]))
 
         fig.tight_layout()
-        fig.savefig("plots/fits_{0}.png".format(obs_planet.attrs['t0']))
+        fig.savefig("plots/fits_{0}_{1}.png".format(obs_planet.attrs['t0'], planet))
         plt.show()
 
-        np.savetxt('outputs/transit_{0}.txt'.format(obs_planet.attrs['t0']),
+        np.savetxt('outputs/transit_{0}_{1}.txt'.format(obs_planet.attrs['t0'], planet),
                    np.vstack([bin_centers, depths, depths_errs]).T)
 
         bin_results.append(depths)

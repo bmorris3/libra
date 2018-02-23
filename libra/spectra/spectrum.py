@@ -5,6 +5,7 @@ import astropy.units as u
 import h5py
 import numpy as np
 from astropy.constants import h, c
+import matplotlib.pyplot as plt
 
 __all__ = ['Spectrum1D', 'ObservationArchive', 'nirspec_pixel_wavelengths',
            'Simulation']

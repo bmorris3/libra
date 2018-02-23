@@ -29,7 +29,7 @@ exptime = 1*u.s
 dataset_kwargs = dict(compression='gzip')
 
 for planet in planets:
-    with ObservationArchive(run_name, 'w') as obs:
+    with ObservationArchive(run_name, 'a') as obs:
         if 'wavelengths' not in obs.archive:
             obs.archive.create_dataset('wavelengths', data=wl)
 
@@ -71,10 +71,10 @@ for planet in planets:
                                        (1 + flares[i, :]) + background(wl, exptime))
 
             spectral_fluxes = np.sum(spectra, axis=1)
-            plt.scatter(times, spectral_fluxes/spectral_fluxes.mean(),
-                        marker='.', s=4, label='spectrum model')
-            plt.legend()
-            plt.show()
+            # plt.scatter(times, spectral_fluxes/spectral_fluxes.mean(),
+            #             marker='.', s=4, label='spectrum model')
+            # plt.legend()
+            # plt.show()
             subgroup.attrs['spot_radii'] = [s.r for s in star.spots]
             subgroup.attrs['spot_contrast'] = star.spots[0].contrast
             subgroup.attrs['t0'] = midtransit
