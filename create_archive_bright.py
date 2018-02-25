@@ -9,13 +9,13 @@ from libra import (IRTFTemplate, magnitudes,
                    background, poisson, spitzer_variability,
                    inject_flares, inject_example_flare, transit_duration,
                    Star, trappist1, transit_model, ObservationArchive,
-                   trappist1_all_transits, inject_microflares)
+                   trappist1_all_transits, Spectra1D)
 
 sptype_phot = 'M8V'
 sptype_spot = 'K0V'
 planets = list('bcdefgh')#bh
 name = 'TRAPPIST-1'
-run_name = 'trappist1_bright2'
+run_name = 'trappist1_bright3'
 
 import json
 
@@ -47,7 +47,7 @@ with ObservationArchive(run_name+'_'+planet, 'w') as obs:
     spectrum_photo = IRTFTemplate(sptype_phot)
     spectrum_spots = IRTFTemplate(sptype_spot)#spectrum_photo.scale_temperature(delta_teff)
 
-    for midtransit in trappist_transits["{0} {1}".format(name, planet)][:10]:
+    for midtransit in trappist_transits["{0} {1}".format(name, planet)]:
         print('midtransit', midtransit)
         times = np.arange(midtransit - 1.5*duration,
                           midtransit + 1.5*duration, exptime.to(u.day).value)
@@ -62,16 +62,22 @@ with ObservationArchive(run_name+'_'+planet, 'w') as obs:
         fluxes = star.fractional_flux(times)
         flares = inject_flares(wl, times)
         # flares = inject_mi]\m\ares(wl, times)
-        spectra = np.zeros((len(times), len(wl)))
 
-        spitzer_var = spitzer_variability(times)
+        spitzer_var = spitzer_variability(times)[:, np.newaxis]
 
-        for i in range(len(times)):
-            combined_spectrum = ((1 - area[i]) * spectrum_photo +
-                                 area[i] * spectrum_spots)
-            spectra[i, :] = poisson(combined_spectrum.n_photons(wl, exptime, mag) *
-                                   transit[i] * throughput(wl) * spitzer_var[i] *
-                                   (1 + flares[i, :]) + background(wl, exptime))
+        combined_spectra = (1 - area) * spectrum_photo + area * spectrum_spots
+
+        #import ipdb; ipdb.set_trace()
+
+        combined_flux = u.Quantity([spectrum.flux for spectrum in combined_spectra])
+        combined_wavelength = combined_spectra[0].wavelength
+
+        spectra_vector = Spectra1D(combined_wavelength, combined_flux,
+                                   header=combined_spectra[0].header)
+
+        spectra = poisson(spectra_vector.n_photons(wl, exptime, mag) * transit *
+                          throughput(wl)[np.newaxis, :] * spitzer_var *
+                          (1 + flares) + background(wl, exptime)[np.newaxis, :])
 
         # spectral_fluxes = np.sum(spectra, axis=1)
         # plt.scatter(times, spectral_fluxes/spectral_fluxes.mean(),

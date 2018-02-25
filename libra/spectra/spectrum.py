@@ -8,7 +8,7 @@ from astropy.constants import h, c
 import matplotlib.pyplot as plt
 
 __all__ = ['Spectrum1D', 'ObservationArchive', 'nirspec_pixel_wavelengths',
-           'Simulation']
+           'Simulation', 'Spectra1D']
 
 bg_path = os.path.join(os.path.dirname(__file__), os.pardir, 'data', 'etc',
                        'image_detector.fits')
@@ -72,6 +72,58 @@ class Spectrum1D(object):
 
         return Spectrum1D(self.wavelength, multiplier * self.flux,
                           header=self.header)
+
+    def n_photons(self, wavelengths, exp_time, J):
+        """
+        Estimate the number of photons received from a target with J magnitude
+        ``J`` over exposure time ``exp_time``.
+
+        Parameters
+        ----------
+        wavelengths : `~astropy.units.Quantity`
+            Wavelengths to test
+        exp_time : `~astropy.units.Quantity`
+            Exposure time
+        J : float
+            J-band magnitude of the target
+
+        Returns
+        -------
+        fluxes : `~numpy.ndarray`
+            Counts that reach the telescope at each wavelength
+        """
+        if not hasattr(self.flux, 'unit'):
+            raise NotImplementedError("Flux must have units")
+
+        interped_fluxes = self.interp_flux(wavelengths)
+
+        delta_lambda = np.nanmedian(np.diff(wavelengths))
+        n_photons_template = (interped_fluxes * wavelengths / h / c *
+                              JWST_aperture_area * delta_lambda *
+                              exp_time).decompose().value
+
+        relative_target_flux = 10**(0.4 * (float(self.header['J']) - J))
+
+        return relative_target_flux * n_photons_template
+
+
+class Spectra1D(object):
+    def __init__(self, wavelength, flux, error=None, header=None, t_eff=None):
+        self.wavelength = wavelength
+        self.flux = flux
+        self.error = error
+        self.header = header
+        self.t_eff = t_eff
+
+    @u.quantity_input(new_wavelengths=u.m)
+    def interp_flux(self, new_wavelengths):
+        f = interp1d(self.wavelength.value, self.flux, kind='linear',
+                     bounds_error=False, fill_value=0, axis=1)
+        interped_fluxes = f(new_wavelengths)
+
+        if hasattr(self.flux, 'unit') and self.flux.unit is not None:
+            return interped_fluxes * self.flux.unit
+        return interped_fluxes
 
     def n_photons(self, wavelengths, exp_time, J):
         """

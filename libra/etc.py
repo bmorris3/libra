@@ -80,7 +80,7 @@ def background(wavelengths, exp_time):
     return (rate * exp_time).decompose().value
 
 
-def poisson(fluxes):
+def poisson(fluxes, axis=None):
     """
     Add Poisson (counting) noise to ``fluxes``
 
@@ -94,4 +94,7 @@ def poisson(fluxes):
     fluxes : `~numpy.ndarray`
         Fluxes plus poisson uncertainty
     """
-    return fluxes + np.sqrt(fluxes) * np.random.randn(len(fluxes))
+    if axis is not None:
+       return fluxes + np.sqrt(fluxes) * np.random.randn(len(fluxes))
+    else:
+       return fluxes + np.sqrt(fluxes) * np.random.randn(*fluxes.shape)
