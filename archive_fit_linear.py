@@ -23,7 +23,8 @@ j = sys.argv[1]
 outputs_dir = '/astro/store/scratch/tmp/bmmorris/libra/outputs'
 
 with ObservationArchive('trappist1_bright2_b', 'r', outputs_dir=outputs_dir) as obs:
-    sim = obs.b[3]
+# with ObservationArchive('trappist1_bright2_b', 'r') as obs:
+    sim = obs.b[int(j)]
     times = sim.times[:]
     spectra = sim.spectra[:]
     plt.plot(sim.times, np.sum(sim.spectra, axis=1))
@@ -37,7 +38,6 @@ fluxes /= oot_median
 fluxes -= 1
 
 plt.errorbar(times, fluxes, errors, color='k', fmt='.', ecolor='silver')
-
 
 class MeanModel3Param(Model):
     parameter_names = ['amp', 'depth', 't0']
