@@ -72,8 +72,11 @@ mean_model = MeanModel3Param(bounds=parameter_bounds, **initp_dict)
 #                       log_omega0=log_w0, bounds=bounds)
 
 #kernel.freeze_parameter("log_Q")  # We don't want to fit for "Q" in this term
-bounds = dict(log_a=(-30, 30), log_c=(np.log(4), np.log(8)))
-kernel = terms.RealTerm(log_a=10, log_c=np.log(6),
+bounds = dict(log_a=(-30, 30))#, log_c=(np.log(4), np.log(8)))
+
+log_c_median = 1.98108915
+
+kernel = terms.RealTerm(log_a=3, log_c=log_c_median,
                         bounds=bounds)
 
 gp = celerite.GP(kernel, mean=mean_model, fit_mean=True)
