@@ -18,13 +18,13 @@ duration = transit_duration(original_params)
 times = np.arange(t0-1.5*duration, t0+1.5*duration, 1/60/60/24)
 
 import sys
-j = sys.argv[1]
+j = int(sys.argv[1])
 
-outputs_dir = '/astro/store/scratch/tmp/bmmorris/libra/outputs'
+outputs_dir = '/astro/store/scratch/tmp/bmmorris/libra/'
 
 with ObservationArchive('trappist1_bright2_b', 'r', outputs_dir=outputs_dir) as obs:
 # with ObservationArchive('trappist1_bright2_b', 'r') as obs:
-    sim = obs.b[int(j)]
+    sim = obs.b[j]
     times = sim.times[:]
     spectra = sim.spectra[:]
     plt.plot(sim.times, np.sum(sim.spectra, axis=1))
@@ -58,20 +58,23 @@ parameter_bounds = dict(amp=[0.9*np.min(fluxes), 1.3*np.max(fluxes)],
 
 mean_model = MeanModel3Param(bounds=parameter_bounds, **initp_dict)
 
-Q = 1.0 / np.sqrt(2.0)
-log_w0 = 4 #3.0
-log_S0 = 10
+#Q = 1.0 / np.sqrt(2.0)
+#log_w0 = 4 #3.0
+#log_S0 = 10
 
-log_cadence_min = None # np.log(2*np.pi/(2./24))
-log_cadence_max = np.log(2*np.pi/(0.25/24))
+#log_cadence_min = None # np.log(2*np.pi/(2./24))
+#log_cadence_max = np.log(2*np.pi/(0.25/24))
 
-bounds = dict(log_S0=(-15, 30), log_Q=(-15, 15),
-              log_omega0=(log_cadence_min, log_cadence_max))
+#bounds = dict(log_S0=(-15, 30), log_Q=(-15, 15),
+#              log_omega0=(log_cadence_min, log_cadence_max))
 
-kernel = terms.SHOTerm(log_S0=log_S0, log_Q=np.log(Q),
-                       log_omega0=log_w0, bounds=bounds)
+#kernel = terms.SHOTerm(log_S0=log_S0, log_Q=np.log(Q),
+#                       log_omega0=log_w0, bounds=bounds)
 
-kernel.freeze_parameter("log_Q")  # We don't want to fit for "Q" in this term
+#kernel.freeze_parameter("log_Q")  # We don't want to fit for "Q" in this term
+bounds = dict(log_a=(-30, 30), log_c=(np.log(4), np.log(8)))
+kernel = terms.RealTerm(log_a=10, log_c=np.log(6),
+                        bounds=bounds)
 
 gp = celerite.GP(kernel, mean=mean_model, fit_mean=True)
 gp.compute(times - original_params.t0, errors)
@@ -105,7 +108,8 @@ with ProgressBar(len(betas)) as bar:
         single_channel_flux = spectra[:, i].copy()
         single_channel_error = np.sqrt(single_channel_flux)
 
-        X = fixed_transit_model[:, np.newaxis]# - 1
+        X = np.vstack([fixed_transit_model, (times - times.mean()), (times - times.mean())**2]).T
+        #X = fixed_transit_model[:, np.newaxis]# - 1
         y = single_channel_flux / np.median(single_channel_flux[oot]) - 1
         err = single_channel_error / np.median(single_channel_flux[oot])
 
@@ -116,7 +120,7 @@ with ProgressBar(len(betas)) as bar:
             V = np.linalg.inv(X.T @ omega_inv @ X)
             beta = V @ X.T @ omega_inv @ y
             betas[i] = beta[0]
-            betas_errs[i] = np.sqrt(np.diag(V))
+            betas_errs[i] = np.sqrt(np.diag(V))[0]
 
         else:
             betas[i] = np.nan
