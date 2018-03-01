@@ -22,8 +22,8 @@ j = int(sys.argv[1])
 
 outputs_dir = '/astro/store/scratch/tmp/bmmorris/libra/'
 
-# with ObservationArchive('trappist1_bright2_b', 'r', outputs_dir=outputs_dir) as obs:
-with ObservationArchive('trappist1_bright2_b', 'r') as obs:
+with ObservationArchive('trappist1_bright2_b', 'r', outputs_dir=outputs_dir) as obs:
+# with ObservationArchive('trappist1_bright2_b', 'r') as obs:
     sim = obs.b[j]
     times = sim.times[:]
     spectra = sim.spectra[:]
