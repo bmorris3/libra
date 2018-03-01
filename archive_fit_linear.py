@@ -101,6 +101,8 @@ gp.set_parameter_vector(soln.x)
 mu, var = gp.predict(fluxes, times - original_params.t0, return_var=True)
 std = np.sqrt(var)
 
+init_depth = soln.x[2]
+
 fixed_transit_model = mu.copy()
 
 betas = np.zeros(spectra.shape[1])
@@ -130,13 +132,12 @@ with ProgressBar(len(betas)) as bar:
             betas_errs[i] = np.nan
         bar.update()
 
-rp = trappist1('b').rp
-depth = rp**2
-u = trappist1('b').u
-ld_factor = 1 - u[0]/3 - u[1]/6
+# rp = trappist1('b').rp
+# u = trappist1('b').u
+# ld_factor = 1 - u[0]/3 - u[1]/6
 wl = nirspec_pixel_wavelengths()
 
 np.savetxt('outputs/transmission_spectrum_b_{0:03d}.txt'.format(j),
-           np.vstack([wl, betas * depth, betas_errs * depth]).T)
+           np.vstack([wl, betas * init_depth, betas_errs * init_depth]).T)
 
 #plt.errorbar(wl.value, betas * depth, betas_errs * depth

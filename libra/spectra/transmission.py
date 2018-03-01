@@ -31,13 +31,11 @@ def transmission_spectrum_depths(planet):
     if path_dict[planet] is not None:
         wavelengths, depths = np.loadtxt(path_dict[planet], unpack=True)
 
-        # Adjust transmission spectrum to include stellar limb-darkening
-        u = trappist1('b').u
-        ld_factor = 1 - u[0]/3 - u[1]/6
-        depths *= ld_factor
+        # Adjust transmission spectrum
+        depths *= 0.9117096418540458
 
         wavelength_to_depth = interp1d(wavelengths, depths, bounds_error=False,
                                        fill_value=np.mean(depths))
         return wavelength_to_depth(nirspec_wavelengths.value)
     else:
-        return trappist1(planet).rp**2 * nirspec_wavelengths[:, np.newaxis].value
+        return trappist1(planet).rp**2 * np.ones_like(nirspec_wavelengths.value)
