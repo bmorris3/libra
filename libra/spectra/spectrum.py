@@ -8,7 +8,7 @@ from astropy.constants import h, c
 import matplotlib.pyplot as plt
 
 __all__ = ['Spectrum1D', 'ObservationArchive', 'nirspec_pixel_wavelengths',
-           'Simulation', 'Spectra1D']
+           'Simulation', 'Spectra1D', 'n_photons']
 
 bg_path = os.path.join(os.path.dirname(__file__), os.pardir, 'data', 'etc',
                        'image_detector.fits')
@@ -55,20 +55,23 @@ class Spectrum1D(object):
 
     def __add__(self, other_spectrum):
 
-        if not hasattr(other_spectrum, 'wavelength'):
+        # if not hasattr(other_spectrum, 'wavelength'):
+        #     raise NotImplementedError()
+        #
+        # interp_flux = (np.interp(other_spectrum.wavelength.value,
+        #                          self.wavelength.value, self.flux.value) *
+        #                self.flux.unit)
+
+        if not other_spectrum.wavelength == self.wavelength:
             raise NotImplementedError()
 
-        interp_flux = (np.interp(other_spectrum.wavelength.value,
-                                 self.wavelength.value, self.flux.value) *
-                       self.flux.unit)
-
         return Spectrum1D(other_spectrum.wavelength,
-                          interp_flux + other_spectrum.flux,
+                          self.flux + other_spectrum.flux,
                           header=self.header)
 
     def __rmul__(self, multiplier):
-        if not np.isscalar(multiplier):
-            raise NotImplementedError()
+        # if not np.isscalar(multiplier):
+        #     raise NotImplementedError()
 
         return Spectrum1D(self.wavelength, multiplier * self.flux,
                           header=self.header)
@@ -105,6 +108,39 @@ class Spectrum1D(object):
         relative_target_flux = 10**(0.4 * (float(self.header['J']) - J))
 
         return relative_target_flux * n_photons_template
+
+
+def n_photons(wavelengths, fluxes, exp_time, J, header):
+    """
+    Estimate the number of photons received from a target with J magnitude
+    ``J`` over exposure time ``exp_time``.
+
+    Parameters
+    ----------
+    wavelengths : `~astropy.units.Quantity`
+        Wavelengths to test
+    exp_time : `~astropy.units.Quantity`
+        Exposure time
+    J : float
+        J-band magnitude of the target
+
+    Returns
+    -------
+    fluxes : `~numpy.ndarray`
+        Counts that reach the telescope at each wavelength
+    """
+    if not hasattr(fluxes, 'unit'):
+        raise NotImplementedError("Flux must have units")
+
+    delta_lambda = np.nanmedian(np.diff(wavelengths))
+    n_photons_template = (fluxes * wavelengths / h / c *
+                          JWST_aperture_area * delta_lambda *
+                          exp_time).decompose().value
+
+    relative_target_flux = 10**(0.4 * (float(header['J']) - J))
+
+    return relative_target_flux * n_photons_template
+
 
 
 class Spectra1D(object):
@@ -241,11 +277,15 @@ class Simulation(object):
     def samples_log_omega0(self):
         return self.observation['samples/log_omega0'][:]
 
+    # @property
+    # def samples_log_a(self):
+    #     return self.observation['samples/log_a'][:]
 
     @property
     def samples_median(self):
         samples = (self.samples_log_S0, self.samples_log_omega0,
-                   self.samples_amp, self.samples_depth, self.samples_t0)
+                   self.samples_amp, self.samples_depth,
+                   self.samples_t0)
         return np.array([np.median(s) for s in samples])
 
     def plot(self):

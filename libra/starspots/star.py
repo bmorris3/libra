@@ -19,6 +19,11 @@ trappist1_posteriors_path = os.path.join(os.path.dirname(__file__), os.pardir,
                                          #'trappist1_spotmodel_posteriors.txt')
                                          #'trappist1_spotmodel_posteriors_onehemisphere.txt')
 #'trappist1_spotmodel_posteriors.txt')
+
+k296_posteriors_path = os.path.join(os.path.dirname(__file__), os.pardir,
+                                    'data', 'k296',
+                                    'k296_spotmodel_posteriors.txt')
+
 np.random.seed(42)
 
 
@@ -227,6 +232,18 @@ class Star(object):
                  Spot.from_latlon(lat2, lon2, rad2, contrast)]
 
         return cls(spots=spots, rotation_period=3.3*u.day)
+
+    @classmethod
+    def with_k296_spot_distribution(cls):
+        samples = np.loadtxt(k296_posteriors_path)
+        sample_index = np.random.randint(0, samples.shape[0])
+
+        lat0, lon0, rad0, lat1, lon1, rad1, contrast, kep_offset = samples[sample_index, :]
+
+        spots = [Spot.from_latlon(lat0, lon0, rad0, contrast),
+                 Spot.from_latlon(lat1, lon1, rad1, contrast)]
+
+        return cls(spots=spots, rotation_period=36.085629155859351*u.day)
 
     def spotted_area(self, times, t0=0):
         """

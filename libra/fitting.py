@@ -7,8 +7,6 @@ from celerite.modeling import Model
 from libra import transit_model
 from copy import deepcopy
 import emcee
-import matplotlib.pyplot as plt
-from corner import corner
 
 from libra import trappist1
 

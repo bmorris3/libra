@@ -13,10 +13,12 @@ systems = json.load(open(systems_json_path))
 
 __all__ = ['kepler296', 'kepler62', 'trappist1', 'transit_model', 'magnitudes',
            'luminosities', 'transit_duration', 'trappist1_all_transits',
-           'mask_simultaneous_transits', 'trappist_out_of_transit']
+           'mask_simultaneous_transits', 'trappist_out_of_transit',
+           'k296_all_transits']
 
 magnitudes = json.load(open(magnitudes_path, 'r'))
 luminosities = json.load(open(luminosities_path, 'r'))
+supersample_factor = 3
 
 
 def batman_generator(star, planet):
@@ -94,7 +96,8 @@ def transit_model(t, params):
     fluxes : `~numpy.ndarray`
         Fluxes at times ``t``
     """
-    m = batman.TransitModel(params, t)
+    m = batman.TransitModel(params, t, supersample_factor=supersample_factor,
+                            exp_time=t[1]-t[0])
     flux = m.light_curve(params)
     return flux
 
@@ -134,8 +137,25 @@ def trappist1_all_transits(times):
         for i, wavelength, depth in zip(range(len(wl)), wl, depths):
             transit_params = deepcopy(params)
             transit_params.rp = depth**0.5
-            m = batman.TransitModel(transit_params, times)
+            m = batman.TransitModel(transit_params, times,
+                                    supersample_factor=supersample_factor,
+                                    exp_time=times[1]-times[0])
             flux[:, i] += (m.light_curve(transit_params) - 1)
+    return flux
+
+
+def k296_all_transits(times):
+    from .spectra import nirspec_pixel_wavelengths
+
+    wl = nirspec_pixel_wavelengths()
+    all_transit_params = [kepler296(planet) for planet in list('bcdef')]
+    flux = np.ones((len(times), len(wl)))
+
+    for i, params in enumerate(all_transit_params):
+        m = batman.TransitModel(params, times,
+                                supersample_factor=supersample_factor,
+                                exp_time=times[1]-times[0])
+        flux += (m.light_curve(params) - 1)[:, np.newaxis]
     return flux
 
 
