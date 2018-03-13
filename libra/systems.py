@@ -13,8 +13,9 @@ systems = json.load(open(systems_json_path))
 
 __all__ = ['kepler296', 'kepler62', 'trappist1', 'transit_model', 'magnitudes',
            'luminosities', 'transit_duration', 'trappist1_all_transits',
-           'mask_simultaneous_transits', 'trappist_out_of_transit',
-           'k296_all_transits']
+           'mask_simultaneous_transits_trappist', 'trappist_out_of_transit',
+           'k296_all_transits', 'mask_simultaneous_transits_k296',
+           'mask_simultaneous_transits_k296', 'k62_all_transits', 'kepler1600']
 
 magnitudes = json.load(open(magnitudes_path, 'r'))
 luminosities = json.load(open(luminosities_path, 'r'))
@@ -77,6 +78,23 @@ def trappist1(planet):
         Transit parameters for planet ``planet``
     """
     return batman_generator('TRAPPIST-1', planet)
+
+
+def kepler1600(planet):
+    """
+    Get planet properties.
+
+    Parameters
+    ----------
+    planet : str
+        Planet in the system.
+
+    Returns
+    -------
+    params : `~batman.TransitParams`
+        Transit parameters for planet ``planet``
+    """
+    return batman_generator('Kepler-1600', planet)
 
 
 def transit_model(t, params):
@@ -159,8 +177,47 @@ def k296_all_transits(times):
     return flux
 
 
-def mask_simultaneous_transits(times, planet):
+def k62_all_transits(times):
+    from .spectra import nirspec_pixel_wavelengths
+
+    wl = nirspec_pixel_wavelengths()
+    all_transit_params = [kepler62(planet) for planet in list('bcdef')]
+    flux = np.ones((len(times), len(wl)))
+
+    for i, params in enumerate(all_transit_params):
+        m = batman.TransitModel(params, times,
+                                supersample_factor=supersample_factor,
+                                exp_time=times[1]-times[0])
+        flux += (m.light_curve(params) - 1)[:, np.newaxis]
+    return flux
+
+
+def mask_simultaneous_transits_trappist(times, planet):
     all_params = [trappist1(planet) for planet in list('bcdefgh'.replace(planet, ''))]
+    fluxes = []
+    for params in all_params:
+        m = batman.TransitModel(params, times)
+        fluxes.append(m.light_curve(params))
+
+    mask = np.any(np.array(fluxes) != 1, axis=0)
+
+    return np.logical_not(mask)
+
+
+def mask_simultaneous_transits_k296(times, planet):
+    all_params = [kepler296(planet) for planet in list('bcdef'.replace(planet, ''))]
+    fluxes = []
+    for params in all_params:
+        m = batman.TransitModel(params, times)
+        fluxes.append(m.light_curve(params))
+
+    mask = np.any(np.array(fluxes) != 1, axis=0)
+
+    return np.logical_not(mask)
+
+
+def mask_simultaneous_transits_k62(times, planet):
+    all_params = [kepler62(planet) for planet in list('bcdef'.replace(planet, ''))]
     fluxes = []
     for params in all_params:
         m = batman.TransitModel(params, times)

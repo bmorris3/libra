@@ -26,10 +26,10 @@ import json
 observable_transits = json.load(open('libra/data/apt/cycle1/observable_transit_times.json'))
 
 transits = {k: v for k, v in observable_transits.items() if k.startswith("Kepler-296")}
-print(transits)
+
 wl = nirspec_pixel_wavelengths()
 mag = magnitudes['Kepler-296']['J']
-exptime = 10*u.s
+exptime = 5*u.s
 dataset_kwargs = dict(compression='gzip')
 
 import sys
@@ -54,8 +54,8 @@ with ObservationArchive(run_name+'_' + planet, 'w') as obs:
 
     for midtransit in transits["{0} {1}".format(name, planet)]:
         print('midtransit', midtransit)
-        times = np.arange(midtransit - 1.5*duration,
-                          midtransit + 1.5*duration, exptime.to(u.day).value)
+        times = np.arange(midtransit - 1.*duration,
+                          midtransit + 1.*duration, exptime.to(u.day).value)
         # times = np.arange(midtransit - 1*duration, midtransit, exptime.to(u.day).value)
 
         transit = all_transits(times)
@@ -82,7 +82,7 @@ with ObservationArchive(run_name+'_' + planet, 'w') as obs:
         # import ipdb; ipdb.set_trace()
 
         spectra = poisson(n_photons(wl, combined_spectra, exptime, mag,
-                                    spectrum_photo.header) *
+                                    spectrum_photo.header) * spitzer_var *
                           throughput(wl)[np.newaxis, :]
                           + background(wl, exptime)[np.newaxis, :])
 

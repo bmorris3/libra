@@ -8,7 +8,8 @@ import numpy as np
 import celerite
 from celerite import terms
 from scipy.optimize import minimize
-from libra import (ObservationArchive, mask_simultaneous_transits,
+from libra import (ObservationArchive, mask_simultaneous_transits_k296,
+                   mask_simultaneous_transits_trappist,
                    transit_model, kepler296, trappist1)
 from celerite.solver import LinAlgError
 from celerite.modeling import Model
@@ -18,14 +19,14 @@ import sys
 
 planet = sys.argv[1]
 
-# run_name = 'k296' #'trappist1_microflares' #'trappist1_bright'
-#
-# original_params = kepler296(planet) #trappist1(planet)
+run_name = 'k296'
 
-run_name = 'trappist1_bright2' #'trappist1_microflares' #'trappist1_bright'
+original_params = kepler296(planet)
+simultaenous_transits = mask_simultaneous_transits_k296
 
-original_params = trappist1(planet)
-
+# run_name = 'trappist1_bright2' #'trappist1_microflares' #'trappist1_bright'
+# original_params = trappist1(planet)
+# simultaenous_transits = mask_simultaneous_transits_trappist
 
 with ObservationArchive(run_name + '_' + planet, 'a') as obs:
     #for obs_planet in getattr(obs, planet):
@@ -38,7 +39,7 @@ for i in range(0, n_iterations):
         #for obs_planet in getattr(obs, planet):
         obs_planet = getattr(obs, planet)[i]
         print(planet, obs_planet.path)
-        mask = mask_simultaneous_transits(obs_planet.times, planet)
+        mask = simultaenous_transits(obs_planet.times, planet)
         #not_during_flares = np.abs(np.max(obs_planet.flares, axis=1) - 1) < 1e-3
         #mask &= not_during_flares
 

@@ -24,7 +24,7 @@ k296_posteriors_path = os.path.join(os.path.dirname(__file__), os.pardir,
                                     'data', 'k296',
                                     'k296_spotmodel_posteriors.txt')
 
-np.random.seed(42)
+#np.random.seed(42)
 
 
 class Spot(object):

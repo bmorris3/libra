@@ -12,29 +12,35 @@ from libra import (IRTFTemplate, magnitudes,
                    k296_all_transits, Spectra1D, trappist_out_of_transit,
                    n_photons)
 
-sptype_phot = 'M1V'
-sptype_spot = 'M3V'
-secondary_sptype = 'M3V'
-dilution_factor = 0.785
-planets = list('bcdef')
+sptype_phot = 'K7V'
+sptype_spot = 'K0V'
+planets = list('b')
 name = 'Kepler-296'
-run_name = 'k296'
-transit_params = kepler296
-all_transits = k296_all_transits
-import json
+planet = 'b'
 
-observable_transits = json.load(open('libra/data/apt/cycle1/observable_transit_times.json'))
+import sys
+i = sys.argv[1]
+run_name = 'tyler{0}'.format(i)
+#transit_params = kepler296
 
-transits = {k: v for k, v in observable_transits.items() if k.startswith("Kepler-296")}
+duration = transit_duration(kepler296(planet))
+
+midtransit = mt = Time('1991-02-21 8:00').jd + 100*np.random.rand()
+print(100*np.random.rand(), midtransit)
+#transits = {"Kepler-296 b": [mt]}
+params = kepler296('b')
+
+rotation_period = 2 * np.random.rand() + 1
+params.rp = params.rp * (0.3 * np.random.rand() + 0.4)
+params.t0 = mt
+
+np.savetxt(run_name+'.txt', [params.rp, params.t0, rotation_period])
 
 wl = nirspec_pixel_wavelengths()
 mag = magnitudes['Kepler-296']['J']
 exptime = 5*u.s
 dataset_kwargs = dict(compression='gzip')
 
-import sys
-
-planet = sys.argv[1]
 
 with ObservationArchive(run_name+'_' + planet, 'w') as obs:
     if 'wavelengths' not in obs.archive:
@@ -45,61 +51,53 @@ with ObservationArchive(run_name+'_' + planet, 'w') as obs:
         del obs.archive[planet]
     group = obs.archive.create_group(planet)
 
-    u1, u2 = transit_params(planet).u
-    duration = transit_duration(transit_params(planet))
+    u1, u2 = params.u
+    #duration = transit_duration(transit_params(planet))
 
     spectrum_photo = IRTFTemplate(sptype_phot)
-    spectrum_spots = IRTFTemplate(sptype_spot)#spectrum_photo.scale_temperature(delta_teff)
-    spectrum_secondary = IRTFTemplate(secondary_sptype)
+    spectrum_spots = IRTFTemplate(sptype_spot)
 
-    for midtransit in transits["{0} {1}".format(name, planet)]:
-        print('midtransit', midtransit)
-        times = np.arange(midtransit - 1.*duration,
-                          midtransit + 1.*duration, exptime.to(u.day).value)
-        # times = np.arange(midtransit - 1*duration, midtransit, exptime.to(u.day).value)
+    print('midtransit', midtransit)
+    times = np.arange(midtransit - (8*np.random.rand() + 2)*duration,
+                      midtransit + (8*np.random.rand() + 2)*duration, exptime.to(u.day).value)
+    # times = np.arange(midtransit - 1*duration, midtransit, exptime.to(u.day).value)
 
-        transit = all_transits(times)
+    transit = transit_model(times, params)#all_transits(times)
 
-        subgroup = group.create_group("{0}".format(Time(midtransit, format='jd').isot))
-        star = Star.with_k296_spot_distribution()
-        area = star.spotted_area(times)
-        fluxes = star.fractional_flux(times)
-        # flares = inject_microflares(wl, times)
+    subgroup = group.create_group("{0}".format(Time(midtransit, format='jd').isot))
+    star = Star.with_k296_spot_distribution()
+    star.rotation_period = rotation_period * u.day
+    area = star.spotted_area(times)
+    fluxes = star.fractional_flux(times)
 
-        spitzer_var = spitzer_variability(times)[:, np.newaxis]
+    spitzer_var = spitzer_variability(times)[:, np.newaxis]
 
-        # oot = trappist_out_of_transit(times)
-        # planet_area = transit_params(planet).rp**2 * (1-trappist_out_of_transit(times).astype(int))
-        spectrum_photo_flux = spectrum_photo.interp_flux(wl)
-        spectrum_spots_flux = spectrum_spots.interp_flux(wl)
-        spectrum_secondary_flux = spectrum_secondary.interp_flux(wl)
+    spectrum_photo_flux = spectrum_photo.interp_flux(wl)
+    spectrum_spots_flux = spectrum_spots.interp_flux(wl)
 
-        combined_spectra = (dilution_factor * ((transit - area[:, np.newaxis]) *
-                             spectrum_photo_flux + area[:, np.newaxis] *
-                             spectrum_spots_flux) +
-                            (1 - dilution_factor) * spectrum_secondary_flux)
+    combined_spectra = ((transit[:, np.newaxis] - area[:, np.newaxis]) *
+                         spectrum_photo_flux + area[:, np.newaxis] *
+                         spectrum_spots_flux)
 
-        # import ipdb; ipdb.set_trace()
+    spectra = poisson(n_photons(wl, combined_spectra, exptime, mag,
+                                spectrum_photo.header) * spitzer_var *
+                      throughput(wl)[np.newaxis, :]
+                      + background(wl, exptime)[np.newaxis, :])
 
-        spectra = poisson(n_photons(wl, combined_spectra, exptime, mag,
-                                    spectrum_photo.header) *
-                          throughput(wl)[np.newaxis, :]
-                          + background(wl, exptime)[np.newaxis, :])
+    # spectral_fluxes = np.sum(spectra, axis=1)
+    # plt.scatter(times, spectral_fluxes/spectral_fluxes.mean(),
+    #             marker='.', s=4, label='spectrum model')
+    # plt.legend()
+    # plt.show()
+    # subgroup.attrs['spot_radii'] = [s.r for s in star.spots]
+    # subgroup.attrs['spot_contrast'] = star.spots[0].contrast
+    # subgroup.attrs['t0'] = midtransit
 
-        # spectral_fluxes = np.sum(spectra, axis=1)
-        # plt.scatter(times, spectral_fluxes/spectral_fluxes.mean(),
-        #             marker='.', s=4, label='spectrum model')
-        # plt.legend()
-        # plt.show()
-        subgroup.attrs['spot_radii'] = [s.r for s in star.spots]
-        subgroup.attrs['spot_contrast'] = star.spots[0].contrast
-        subgroup.attrs['t0'] = midtransit
-
-        subgroup.create_dataset('spectra', data=spectra, **dataset_kwargs)
-        subgroup.create_dataset('transit', data=transit, **dataset_kwargs)
-        subgroup.create_dataset('fluxes', data=fluxes, **dataset_kwargs)
-        subgroup.create_dataset('spotted_area', data=area, **dataset_kwargs)
-        #subgroup.create_dataset('flares', data=1 + flares, **dataset_kwargs)
-        subgroup.create_dataset('spitzer_var', data=spitzer_var, **dataset_kwargs)
-        subgroup.create_dataset('times', data=times, **dataset_kwargs)
+    subgroup.create_dataset('spectra', data=spectra, **dataset_kwargs)
+    # subgroup.create_dataset('transit', data=transit, **dataset_kwargs)
+    # subgroup.create_dataset('fluxes', data=fluxes, **dataset_kwargs)
+    # subgroup.create_dataset('spotted_area', data=area, **dataset_kwargs)
+    #subgroup.create_dataset('flares', data=1 + flares, **dataset_kwargs)
+    # subgroup.create_dataset('spitzer_var', data=spitzer_var, **dataset_kwargs)
+    subgroup.create_dataset('times', data=times, **dataset_kwargs)
     obs.archive.flush()
