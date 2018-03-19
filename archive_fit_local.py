@@ -10,23 +10,28 @@ from celerite import terms
 from scipy.optimize import minimize
 from libra import (ObservationArchive, mask_simultaneous_transits_k296,
                    mask_simultaneous_transits_trappist,
-                   transit_model, kepler296, trappist1)
+                   transit_model, kepler296, trappist1, kepler62,
+                   mask_simultaneous_transits_k62)
 from celerite.solver import LinAlgError
 from celerite.modeling import Model
 from copy import deepcopy
 import emcee
 import sys
 
+
 planet = sys.argv[1]
 
-run_name = 'k296'
+# run_name = 'k62'
+# original_params = kepler62(planet)
+# simultaenous_transits = mask_simultaneous_transits_k62
 
-original_params = kepler296(planet)
-simultaenous_transits = mask_simultaneous_transits_k296
+# run_name = 'k296'
+# original_params = kepler296(planet)
+# simultaenous_transits = mask_simultaneous_transits_k296
 
-# run_name = 'trappist1_bright2' #'trappist1_microflares' #'trappist1_bright'
-# original_params = trappist1(planet)
-# simultaenous_transits = mask_simultaneous_transits_trappist
+run_name = 'trappist1_ngroups2' #'trappist1_bright2' #'trappist1_microflares' #'trappist1_bright'
+original_params = trappist1(planet)
+simultaenous_transits = mask_simultaneous_transits_trappist
 
 with ObservationArchive(run_name + '_' + planet, 'a') as obs:
     #for obs_planet in getattr(obs, planet):

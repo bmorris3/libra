@@ -9,23 +9,28 @@ from libra import (IRTFTemplate, magnitudes,
                    background, poisson, spitzer_variability,
                    inject_flares, inject_example_flare, transit_duration,
                    Star, trappist1, transit_model, ObservationArchive,
-                   trappist1_all_transits, Spectra1D)
+                   trappist1_all_transits, Spectra1D, trappist_out_of_transit,
+                   n_photons)
 
 sptype_phot = 'M8V'
 sptype_spot = 'K0V'
 planets = list('bcdefgh')#bh
 name = 'TRAPPIST-1'
-run_name = 'trappist1_bright3'
+run_name = 'trappist1_ngroups2_photonnoise'#'trappist1_bright2'
 
 import json
 
-observable_transits = json.load(open('libra/data/apt/cycle0/observable_transit_times.json'))
+observable_transits = json.load(open('libra/data/apt/cycle1/observable_transit_times.json'))
 
 trappist_transits = {k: v for k, v in observable_transits.items() if k.startswith("TRAPPIST")}
 
 wl = nirspec_pixel_wavelengths()
 mag = magnitudes['TRAPPIST-1']['J']
-exptime = 1*u.s
+
+n_groups = 2 #6
+frame_time = 0.22616 * u.s
+exptime = n_groups * frame_time
+
 dataset_kwargs = dict(compression='gzip')
 
 import sys
@@ -61,23 +66,32 @@ with ObservationArchive(run_name+'_'+planet, 'w') as obs:
         area = star.spotted_area(times)
         fluxes = star.fractional_flux(times)
         flares = inject_flares(wl, times)
-        # flares = inject_mi]\m\ares(wl, times)
+        # flares = inject_microflares(wl, times)
 
         spitzer_var = spitzer_variability(times)[:, np.newaxis]
 
-        combined_spectra = (1 - area) * spectrum_photo + area * spectrum_spots
+        # oot = trappist_out_of_transit(times)
+        # planet_area = trappist1(planet).rp**2 * (1-trappist_out_of_transit(times).astype(int))
+        spectrum_photo_flux = spectrum_photo.interp_flux(wl)
+        spectrum_spots_flux = spectrum_spots.interp_flux(wl)
+
+        # combined_spectra = ((transit - area[:, np.newaxis]) *
+        #                     spectrum_photo_flux + area[:, np.newaxis] *
+        #                     spectrum_spots_flux)
+
+        combined_spectra = transit * spectrum_photo_flux
 
         #import ipdb; ipdb.set_trace()
 
-        combined_flux = u.Quantity([spectrum.flux for spectrum in combined_spectra])
-        combined_wavelength = combined_spectra[0].wavelength
+        # spectra = poisson(n_photons(wl, combined_spectra, mag,
+        #                             spectrum_photo.header, n_groups) *
+        #                   throughput(wl)[np.newaxis, :] * spitzer_var *
+        #                   (1 + flares) + background(wl, exptime)[np.newaxis, :])
 
-        spectra_vector = Spectra1D(combined_wavelength, combined_flux,
-                                   header=combined_spectra[0].header)
+        spectra = poisson(n_photons(wl, combined_spectra, mag,
+                                    spectrum_photo.header, n_groups) *
+                          throughput(wl)[np.newaxis, :] + background(wl, exptime)[np.newaxis, :])
 
-        spectra = poisson(spectra_vector.n_photons(wl, exptime, mag) * transit *
-                          throughput(wl)[np.newaxis, :] * spitzer_var *
-                          (1 + flares) + background(wl, exptime)[np.newaxis, :])
 
         # spectral_fluxes = np.sum(spectra, axis=1)
         # plt.scatter(times, spectral_fluxes/spectral_fluxes.mean(),

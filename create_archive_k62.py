@@ -10,23 +10,28 @@ from libra import (IRTFTemplate, magnitudes,
                    inject_flares, inject_example_flare, transit_duration,
                    Star, trappist1, transit_model, ObservationArchive,
                    trappist1_all_transits, Spectra1D, trappist_out_of_transit,
-                   n_photons)
+                   n_photons, k62_variability, k62_all_transits, kepler62)
 
-sptype_phot = 'M8V'
-sptype_spot = 'K0V'
-planets = list('bcdefgh')#bh
-name = 'TRAPPIST-1'
-run_name = 'trappist1_bright2'
+sptype_phot = 'K2V'
+planets = list('bcdef')#bh
+name = 'Kepler-62'
+run_name = 'k62'
 
 import json
 
 observable_transits = json.load(open('libra/data/apt/cycle1/observable_transit_times.json'))
 
-trappist_transits = {k: v for k, v in observable_transits.items() if k.startswith("TRAPPIST")}
+transits = {k: v for k, v in observable_transits.items() if k.startswith("Kepler-62")}
 
 wl = nirspec_pixel_wavelengths()
-mag = magnitudes['TRAPPIST-1']['J']
-exptime = 1*u.s
+mag = magnitudes['Kepler-62']['J']
+
+#exptime = 10*u.s
+
+n_groups = 45
+frame_time = 0.22616 * u.s
+exptime = n_groups * frame_time
+
 dataset_kwargs = dict(compression='gzip')
 
 import sys
@@ -42,44 +47,44 @@ with ObservationArchive(run_name+'_'+planet, 'w') as obs:
         del obs.archive[planet]
     group = obs.archive.create_group(planet)
 
-    u1, u2 = trappist1(planet).u
-    duration = transit_duration(trappist1(planet))
+    u1, u2 = kepler62(planet).u
+    duration = transit_duration(kepler62(planet))
 
     spectrum_photo = IRTFTemplate(sptype_phot)
-    spectrum_spots = IRTFTemplate(sptype_spot)#spectrum_photo.scale_temperature(delta_teff)
+    #spectrum_spots = IRTFTemplate(sptype_spot)#spectrum_photo.scale_temperature(delta_teff)
 
-    for midtransit in trappist_transits["{0} {1}".format(name, planet)]:
+    for midtransit in transits["{0} {1}".format(name, planet)]:
         print('midtransit', midtransit)
         times = np.arange(midtransit - 1.5*duration,
                           midtransit + 1.5*duration, exptime.to(u.day).value)
         # times = np.arange(midtransit - 1*duration, midtransit, exptime.to(u.day).value)
 
         #transit = transit_model(times, trappist1(planet))
-        transit = trappist1_all_transits(times)
+        #transit = trappist1_all_transits(times)
+        transit = k62_all_transits(times)
 
         subgroup = group.create_group("{0}".format(Time(midtransit, format='jd').isot))
-        star = Star.with_trappist1_spot_distribution()
-        area = star.spotted_area(times)
-        fluxes = star.fractional_flux(times)
+        #star = Star.with_trappist1_spot_distribution()
+        #area = star.spotted_area(times)
+        #fluxes = star.fractional_flux(times)
+        fluxes = np.ones_like(times)
         flares = inject_flares(wl, times)
         # flares = inject_microflares(wl, times)
 
-        spitzer_var = spitzer_variability(times)[:, np.newaxis]
+        #spitzer_var = spitzer_variability(times)[:, np.newaxis]
+        granulation = k62_variability(times)[:, np.newaxis]
 
         # oot = trappist_out_of_transit(times)
         # planet_area = trappist1(planet).rp**2 * (1-trappist_out_of_transit(times).astype(int))
         spectrum_photo_flux = spectrum_photo.interp_flux(wl)
-        spectrum_spots_flux = spectrum_spots.interp_flux(wl)
+        #spectrum_spots_flux = spectrum_spots.interp_flux(wl)
 
-        combined_spectra = ((transit - area[:, np.newaxis]) *
-                            spectrum_photo_flux + area[:, np.newaxis] *
-                            spectrum_spots_flux)
-
+        combined_spectra = transit * spectrum_photo_flux
         #import ipdb; ipdb.set_trace()
 
-        spectra = poisson(n_photons(wl, combined_spectra, exptime, mag,
-                                    spectrum_photo.header) *
-                          throughput(wl)[np.newaxis, :] * spitzer_var *
+        spectra = poisson(n_photons(wl, combined_spectra, mag,
+                                    spectrum_photo.header, n_groups) *
+                          throughput(wl)[np.newaxis, :] * granulation *
                           (1 + flares) + background(wl, exptime)[np.newaxis, :])
 
         # spectral_fluxes = np.sum(spectra, axis=1)
@@ -87,15 +92,15 @@ with ObservationArchive(run_name+'_'+planet, 'w') as obs:
         #             marker='.', s=4, label='spectrum model')
         # plt.legend()
         # plt.show()
-        subgroup.attrs['spot_radii'] = [s.r for s in star.spots]
-        subgroup.attrs['spot_contrast'] = star.spots[0].contrast
+        # subgroup.attrs['spot_radii'] = [s.r for s in star.spots]
+        # subgroup.attrs['spot_contrast'] = star.spots[0].contrast
         subgroup.attrs['t0'] = midtransit
 
         subgroup.create_dataset('spectra', data=spectra, **dataset_kwargs)
         subgroup.create_dataset('transit', data=transit, **dataset_kwargs)
         subgroup.create_dataset('fluxes', data=fluxes, **dataset_kwargs)
-        subgroup.create_dataset('spotted_area', data=area, **dataset_kwargs)
+        # subgroup.create_dataset('spotted_area', data=area, **dataset_kwargs)
         subgroup.create_dataset('flares', data=1 + flares, **dataset_kwargs)
-        subgroup.create_dataset('spitzer_var', data=spitzer_var, **dataset_kwargs)
+        subgroup.create_dataset('granulation', data=granulation, **dataset_kwargs)
         subgroup.create_dataset('times', data=times, **dataset_kwargs)
     obs.archive.flush()

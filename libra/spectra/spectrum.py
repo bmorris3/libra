@@ -76,41 +76,8 @@ class Spectrum1D(object):
         return Spectrum1D(self.wavelength, multiplier * self.flux,
                           header=self.header)
 
-    def n_photons(self, wavelengths, exp_time, J):
-        """
-        Estimate the number of photons received from a target with J magnitude
-        ``J`` over exposure time ``exp_time``.
 
-        Parameters
-        ----------
-        wavelengths : `~astropy.units.Quantity`
-            Wavelengths to test
-        exp_time : `~astropy.units.Quantity`
-            Exposure time
-        J : float
-            J-band magnitude of the target
-
-        Returns
-        -------
-        fluxes : `~numpy.ndarray`
-            Counts that reach the telescope at each wavelength
-        """
-        if not hasattr(self.flux, 'unit'):
-            raise NotImplementedError("Flux must have units")
-
-        interped_fluxes = self.interp_flux(wavelengths)
-
-        delta_lambda = np.nanmedian(np.diff(wavelengths))
-        n_photons_template = (interped_fluxes * wavelengths / h / c *
-                              JWST_aperture_area * delta_lambda *
-                              exp_time).decompose().value
-
-        relative_target_flux = 10**(0.4 * (float(self.header['J']) - J))
-
-        return relative_target_flux * n_photons_template
-
-
-def n_photons(wavelengths, fluxes, exp_time, J, header):
+def n_photons(wavelengths, fluxes, J, header, n_groups):
     """
     Estimate the number of photons received from a target with J magnitude
     ``J`` over exposure time ``exp_time``.
@@ -123,14 +90,26 @@ def n_photons(wavelengths, fluxes, exp_time, J, header):
         Exposure time
     J : float
         J-band magnitude of the target
-
+    n_groups : int
+        Number of groups per integration
     Returns
     -------
     fluxes : `~numpy.ndarray`
         Counts that reach the telescope at each wavelength
+
+    References
+    ----------
+    [1] https://jwst-docs.stsci.edu/display/JTI/NIRSpec+Bright+Object+Time-Series+Spectroscopy
     """
     if not hasattr(fluxes, 'unit'):
         raise NotImplementedError("Flux must have units")
+
+    if 2 > n_groups:
+        raise ValueError("Group # must be >= 2")
+
+#    efficiency = (n_groups - 1) / (n_groups + 1)
+
+    exp_time = (n_groups - 1) * 0.22616 * u.s
 
     delta_lambda = np.nanmedian(np.diff(wavelengths))
     n_photons_template = (fluxes * wavelengths / h / c *
@@ -244,6 +223,10 @@ class Simulation(object):
     @property
     def spitzer_var(self):
         return self.observation['spitzer_var'][:]
+
+    @property
+    def granulation(self):
+        return self.observation['granulation'][:]
 
     @property
     def flares(self):

@@ -4,7 +4,7 @@ import numpy as np
 import astropy.units as u
 from astropy.time import Time
 
-from libra import ObservationArchive, mask_simultaneous_transits, transit_model, trappist1
+from libra import ObservationArchive, mask_simultaneous_transits_trappist, transit_model, trappist1, kepler296, kepler62
 
 import celerite
 from celerite import terms
@@ -12,17 +12,31 @@ from celerite.modeling import Model
 from copy import deepcopy
 from interpacf import interpolated_acf
 
-run_name = 'trappist1_bright2'
+#run_name = 'trappist1_bright2'
 
 import sys
 planet = sys.argv[1]
+# run_name = 'k296'
+# params = kepler296
+# original_params = kepler296(planet)
+# #dilution_factor = 1 / (1 + 0.215)**2
+# dilution_factor = 1.215
 
+# run_name = 'k62'
+# params = kepler62
+# original_params = kepler62(planet)
+
+run_name = 'trappist1_bright2'
+params = trappist1
 original_params = trappist1(planet)
 
+
+dilution_factor = 1
+
 with ObservationArchive(run_name + "_" + planet, 'r') as obs:
-    for obs_planet in getattr(obs, planet):
+    for obs_planet in getattr(obs, planet)[:5]:
 #         try:
-        mask = mask_simultaneous_transits(obs_planet.times, planet)
+        mask = mask_simultaneous_transits_trappist(obs_planet.times, planet)
 
         mid_transit_answer = obs_planet.attrs['t0']
 
@@ -33,7 +47,7 @@ with ObservationArchive(run_name + "_" + planet, 'r') as obs:
         obs_err /= np.median(obs_flux)
         obs_flux /= np.median(obs_flux)
 
-        #params = trappist1(planet)
+        #params = params(planet)
 
         # import matplotlib.pyplot as plt
         # plt.plot(obs_time, obs_flux, '.')
@@ -91,7 +105,7 @@ with ObservationArchive(run_name + "_" + planet, 'r') as obs:
             # corner(samples.T, labels=['amp', 'depth', 't0', 'log_omega0', 'log_S0'])
             # plt.show()
 
-        transit_params = trappist1(planet)
+        transit_params = params(planet)
         transit_params.rp = np.sqrt(np.median(obs_planet.samples_depth))
         transit_params.t0 = np.median(obs_planet.samples_t0)
         amp = np.median(obs_planet.samples_amp)
@@ -119,8 +133,8 @@ with ObservationArchive(run_name + "_" + planet, 'r') as obs:
         ax[0, 0].errorbar(obs_time, obs_flux, obs_err, fmt='.', color='k', ecolor='silver', ms=2, alpha=0.5)
         ax[0, 0].plot(obs_time[::skip], mu, 'r', zorder=10)
         ax[0, 0].fill_between(obs_time[::skip], mu-std, mu+std, color='r', alpha=0.5, zorder=10)
-        ax[0, 0].set_title(Time((obs_time + original_params.t0).min(), format='jd').datetime.date())
-        ax[0, 0].set_ylabel('NIRSpec Counts')
+        ax[0, 0].set_title(Time(mid_transit_answer, format='jd').datetime.date())
+        ax[0, 0].set_ylabel('Relative Flux')
         ax[0, 0].set_xlabel('Time [d]')
 
         ax[1, 0].errorbar(obs_time, obs_flux - best_transit_model,  obs_err, fmt='.',
@@ -131,6 +145,7 @@ with ObservationArchive(run_name + "_" + planet, 'r') as obs:
 
         ax[1, 0].plot(obs_time, transitless_gp_mean, color='DodgerBlue', label='GP-transit', zorder=15)
         ax[1, 0].legend()
+        ax[1, 0].set(xlabel='Time [d]', ylabel='Residuals')
         nparams = 5
         # samples_t0 = obs_planet.samples_t0.reshape((len(obs_planet.samples_t0)//nparams, nparams))
         samples_t0 = obs_planet.samples_t0.reshape((nparams, len(obs_planet.samples_t0)//nparams))
@@ -140,7 +155,7 @@ with ObservationArchive(run_name + "_" + planet, 'r') as obs:
                                         chain - np.median(chain))
             ax[1, 1].plot(lag, acf/acf.max())
         ax[1, 1].set_title('$t_0$ chains ACF')
-
+        ax[1, 1].set(xlabel='Lag [d]', ylabel='ACF')
 
         lag, acf = interpolated_acf(obs_time, transitless_obs_flux - np.median(transitless_obs_flux))
         ax[1, 3].plot(lag, acf/np.percentile(acf, 98), label='(Obs - transit) ACF')
@@ -150,7 +165,7 @@ with ObservationArchive(run_name + "_" + planet, 'r') as obs:
         ax[1, 3].plot(lag, acf/acf.max(), ls='--', lw=2, label='(GP - transit) ACF')
         ax[1, 3].legend()
         #ax[1, 3].set_title('(GP - transit) ACF')
-
+        ax[1, 3].set(xlabel='Lag [d]', ylabel='ACF')
 
         samples_depth = obs_planet.samples_depth.reshape((nparams, len(obs_planet.samples_depth)//nparams))
 
@@ -159,26 +174,35 @@ with ObservationArchive(run_name + "_" + planet, 'r') as obs:
                                         chain - np.median(chain))
             ax[1, 2].plot(lag, acf/acf.max())
         ax[1, 2].set_title('Depth chains ACF')
+        ax[1, 2].set(xlabel='Lag [d]', ylabel='ACF')
 
 
         answer_key = dict(obs_planet.attrs)
         mid_transit_answer = answer_key['t0']
-        n_transits = np.round((obs_planet.samples_t0.mean() - mid_transit_answer) / trappist1(planet).per)
-        mid_transit_answer_translated = mid_transit_answer + trappist1(planet).per * n_transits
+        n_transits = np.round((obs_planet.samples_t0.mean() - mid_transit_answer) / params(planet).per)
+        mid_transit_answer_translated = mid_transit_answer + params(planet).per * n_transits
 
         ax[0, 1].hist(obs_planet.samples_t0*24*60*60, color='k')
         ax[0, 1].axvline(0, color='r')
         ax[0, 1].set_title('$t_0$')
-        ax[0, 1].set_xlabel('Seconds from true $t_0$')
+        ax[0, 1].set(xlabel='Seconds from true $t_0$', ylabel='Posterior samples')
 
         ax[0, 2].set_title('Depth')
-        ax[0, 2].hist(obs_planet.samples_depth, color='k')
-        ax[0, 2].axvline(trappist1(planet).rp**2, color='r')
+        ax[0, 2].hist(obs_planet.samples_depth * dilution_factor, color='k')
+        ax[0, 2].axvline(params(planet).rp**2, color='r')
+        ax[0, 2].set(xlabel='Transit depth', ylabel='Posterior samples')
+
+        # ax[0, 2].axvline(params(planet).rp**2, color='r', ls='--')
+
         plt.setp(ax[0, 2].get_xticklabels(), rotation=30, ha='right')
 
         ax[0, 3].plot(obs_time, obs_planet.fluxes[mask], label='flux')
         ax[0, 3].plot(obs_time, obs_planet.spitzer_var[mask], label='microvar')
-        ax[0, 3].plot(obs_time, np.max(obs_planet.flares, axis=1)[mask], label='flares')
+
+        # ax[0, 3].plot(obs_time, obs_planet.granulation[mask], label='microvar')
+        ax[0, 3].set(xlabel='Time [d]', ylabel='Relative flux')
+
+        # ax[0, 3].plot(obs_time, np.max(obs_planet.flares, axis=1)[mask], label='flares')
 
         ax[0, 3].legend()
         fig.tight_layout()
