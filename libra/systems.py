@@ -15,7 +15,7 @@ __all__ = ['kepler296', 'kepler62', 'trappist1', 'transit_model', 'magnitudes',
            'luminosities', 'transit_duration', 'trappist1_all_transits',
            'mask_simultaneous_transits_trappist', 'trappist_out_of_transit',
            'k296_all_transits', 'mask_simultaneous_transits_k296',
-           'mask_simultaneous_transits_k296', 'k62_all_transits', 'kepler1600']
+           'mask_simultaneous_transits_k62', 'k62_all_transits', 'kepler1600']
 
 magnitudes = json.load(open(magnitudes_path, 'r'))
 luminosities = json.load(open(luminosities_path, 'r'))

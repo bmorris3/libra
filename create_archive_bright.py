@@ -16,7 +16,7 @@ sptype_phot = 'M8V'
 sptype_spot = 'K0V'
 planets = list('bcdefgh')#bh
 name = 'TRAPPIST-1'
-run_name = 'trappist1_ngroups2_photonnoise'#'trappist1_bright2'
+run_name = 'trappist1_ngroups6_photonnoise'#'trappist1_bright2'
 
 import json
 
@@ -27,7 +27,7 @@ trappist_transits = {k: v for k, v in observable_transits.items() if k.startswit
 wl = nirspec_pixel_wavelengths()
 mag = magnitudes['TRAPPIST-1']['J']
 
-n_groups = 2 #6
+n_groups = 6
 frame_time = 0.22616 * u.s
 exptime = n_groups * frame_time
 

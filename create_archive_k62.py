@@ -15,7 +15,7 @@ from libra import (IRTFTemplate, magnitudes,
 sptype_phot = 'K2V'
 planets = list('bcdef')#bh
 name = 'Kepler-62'
-run_name = 'k62'
+run_name = 'k62_ngroups45_10transits'
 
 import json
 
@@ -53,7 +53,9 @@ with ObservationArchive(run_name+'_'+planet, 'w') as obs:
     spectrum_photo = IRTFTemplate(sptype_phot)
     #spectrum_spots = IRTFTemplate(sptype_spot)#spectrum_photo.scale_temperature(delta_teff)
 
-    for midtransit in transits["{0} {1}".format(name, planet)]:
+    for j in range(10):
+        #for midtransit in transits["{0} {1}".format(name, planet)]:
+        midtransit = transits["{0} {1}".format(name, planet)][0]
         print('midtransit', midtransit)
         times = np.arange(midtransit - 1.5*duration,
                           midtransit + 1.5*duration, exptime.to(u.day).value)
@@ -63,7 +65,7 @@ with ObservationArchive(run_name+'_'+planet, 'w') as obs:
         #transit = trappist1_all_transits(times)
         transit = k62_all_transits(times)
 
-        subgroup = group.create_group("{0}".format(Time(midtransit, format='jd').isot))
+        subgroup = group.create_group("{0}_{1}".format(Time(midtransit, format='jd').isot, j))
         #star = Star.with_trappist1_spot_distribution()
         #area = star.spotted_area(times)
         #fluxes = star.fractional_flux(times)
@@ -87,6 +89,11 @@ with ObservationArchive(run_name+'_'+planet, 'w') as obs:
                           throughput(wl)[np.newaxis, :] * granulation *
                           (1 + flares) + background(wl, exptime)[np.newaxis, :])
 
+        # spectra = poisson(n_photons(wl, combined_spectra, mag,
+        #                             spectrum_photo.header, n_groups) *
+        #                   throughput(wl)[np.newaxis, :] + background(wl, exptime)[np.newaxis, :])
+
+
         # spectral_fluxes = np.sum(spectra, axis=1)
         # plt.scatter(times, spectral_fluxes/spectral_fluxes.mean(),
         #             marker='.', s=4, label='spectrum model')
@@ -103,4 +110,4 @@ with ObservationArchive(run_name+'_'+planet, 'w') as obs:
         subgroup.create_dataset('flares', data=1 + flares, **dataset_kwargs)
         subgroup.create_dataset('granulation', data=granulation, **dataset_kwargs)
         subgroup.create_dataset('times', data=times, **dataset_kwargs)
-    obs.archive.flush()
+        obs.archive.flush()

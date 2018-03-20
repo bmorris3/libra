@@ -26,7 +26,8 @@ planet = sys.argv[1]
 # params = kepler62
 # original_params = kepler62(planet)
 
-run_name = 'trappist1_bright2'
+#run_name = 'trappist1_bright2'
+run_name = 'trappist1_ngroups6_photonnoise'
 params = trappist1
 original_params = trappist1(planet)
 
@@ -197,16 +198,18 @@ with ObservationArchive(run_name + "_" + planet, 'r') as obs:
         plt.setp(ax[0, 2].get_xticklabels(), rotation=30, ha='right')
 
         ax[0, 3].plot(obs_time, obs_planet.fluxes[mask], label='flux')
-        ax[0, 3].plot(obs_time, obs_planet.spitzer_var[mask], label='microvar')
 
-        # ax[0, 3].plot(obs_time, obs_planet.granulation[mask], label='microvar')
+        try:
+            ax[0, 3].plot(obs_time, obs_planet.spitzer_var[mask], label='microvar')
+        except KeyError:
+            ax[0, 3].plot(obs_time, obs_planet.granulation[mask], label='microvar')
         ax[0, 3].set(xlabel='Time [d]', ylabel='Relative flux')
 
         # ax[0, 3].plot(obs_time, np.max(obs_planet.flares, axis=1)[mask], label='flares')
 
         ax[0, 3].legend()
         fig.tight_layout()
-        fig.savefig('plots/results_{0}_{1}.png'.format(int(obs_planet.times[mask].min()), planet),
+        fig.savefig('plots/results_{2}_{0}_{1}.png'.format(int(obs_planet.times[mask].min()), planet, run_name),
                     dpi=200, bbox_inches='tight')
         plt.close()
         #plt.show()

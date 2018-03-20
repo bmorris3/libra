@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from libra import (ObservationArchive, mask_simultaneous_transits,
+from libra import (ObservationArchive, mask_simultaneous_transits_trappist,
                    transit_model, trappist1, nirspec_pixel_wavelengths)
 
 from libra.fitting import fit_bandintegrated, fit_spectral_bin
@@ -47,7 +47,7 @@ with ObservationArchive(run_name + '_' + planet, 'r') as obs:
     for obs_planet in getattr(obs, planet):
         results = []
         errs = []
-        mask = mask_simultaneous_transits(obs_planet.times, planet)
+        mask = mask_simultaneous_transits_trappist(obs_planet.times, planet)
 
         obs_time = obs_planet.times[mask]
         obs_flux = np.sum(obs_planet.spectra[mask], axis=1)

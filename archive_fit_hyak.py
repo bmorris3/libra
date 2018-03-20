@@ -9,7 +9,7 @@ import celerite
 from celerite import terms
 from celerite.solver import LinAlgError
 from scipy.optimize import minimize
-from libra import (ObservationArchive, mask_simultaneous_transits,
+from libra import (ObservationArchive, mask_simultaneous_transits_trappist,
                    transit_model, trappist1)
 
 from celerite.modeling import Model
@@ -31,17 +31,19 @@ class MeanModel(Model):
         return self.amp * transit_model(t, params)
 
 
-run_name = 'trappist1_bright'
+run_name = 'trappist1_halftransit'
 output_dir = '/gscratch/stf/bmmorris/libra/'
 
 #with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
 original_params = trappist1(planet)
 
-with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
+#with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
 
-    for obs_planet in getattr(obs, planet):
+for obs_planet in getattr(obs, planet):
+    with ObservationArchive(run_name, 'r') as obs:
+
         print(planet, obs_planet.path)
-        mask = mask_simultaneous_transits(obs_planet.times, planet)
+        mask = mask_simultaneous_transits_trappist(obs_planet.times, planet)
         obs_time = obs_planet.times[mask]
         obs_flux = np.sum(obs_planet.spectra[mask], axis=1)
         obs_err = np.sqrt(obs_flux)
@@ -130,6 +132,16 @@ with ObservationArchive(run_name, 'a', outputs_dir=output_dir) as obs:
             samples_amp = sampler.flatchain[:, 2]
             samples_depth = sampler.flatchain[:, 3]
             samples_t0 = sampler.flatchain[:, 4]
+
+            # from corner import corner
+            import matplotlib.pyplot as plt
+            # corner(sampler.flatchain)
+            # plt.show()
+            gp.set_parameter_vector(np.median(sampler.flatchain, axis=0))
+            mu, var = gp.predict(obs_flux, obs_time, return_var=True)
+            plt.scatter(obs_time, obs_flux)
+            plt.plot(obs_time, mu, lw=3, color='r')
+            plt.show()
 
             if not 'samples' in obs.archive[obs_planet.path]:
                 group = obs.archive[obs_planet.path].create_group('samples')
