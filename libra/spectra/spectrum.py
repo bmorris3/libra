@@ -260,6 +260,14 @@ class Simulation(object):
     def samples_log_omega0(self):
         return self.observation['samples/log_omega0'][:]
 
+    @property
+    def samples_duration(self):
+        return self.observation['samples/duration'][:]
+
+    @property
+    def samples_b(self):
+        return self.observation['samples/b'][:]
+
     # @property
     # def samples_log_a(self):
     #     return self.observation['samples/log_a'][:]
@@ -268,7 +276,7 @@ class Simulation(object):
     def samples_median(self):
         samples = (self.samples_log_S0, self.samples_log_omega0,
                    self.samples_amp, self.samples_depth,
-                   self.samples_t0)
+                   self.samples_t0, self.samples_duration, self.samples_b)
         return np.array([np.median(s) for s in samples])
 
     def plot(self):

@@ -15,7 +15,8 @@ __all__ = ['kepler296', 'kepler62', 'trappist1', 'transit_model', 'magnitudes',
            'luminosities', 'transit_duration', 'trappist1_all_transits',
            'mask_simultaneous_transits_trappist', 'trappist_out_of_transit',
            'k296_all_transits', 'mask_simultaneous_transits_k296',
-           'mask_simultaneous_transits_k62', 'k62_all_transits', 'kepler1600']
+           'mask_simultaneous_transits_k62', 'k62_all_transits', 'kepler1600',
+           'duration_to_otherparams']
 
 magnitudes = json.load(open(magnitudes_path, 'r'))
 luminosities = json.load(open(luminosities_path, 'r'))
@@ -236,3 +237,13 @@ def trappist_out_of_transit(times):
         fluxes.append(m.light_curve(params))
     mask = np.all(np.array(fluxes) == 1, axis=0)
     return mask
+
+def duration_to_otherparams(P, T14, b, RpRs, eccentricity, omega):
+    '''
+    Convert from duration and impact param to a/Rs and inclination
+    '''
+    beta = (1 - eccentricity**2)/(1 + eccentricity*np.sin(np.radians(omega)))
+    C = np.sqrt(1 - eccentricity**2)/(1 + eccentricity*np.sin(np.radians(omega)))
+    i = np.arctan(beta * np.sqrt((1 + RpRs)**2 - b**2)/(b*np.sin(T14*np.pi/(P*C))))
+    aRs = b/(np.cos(i) * beta)
+    return aRs, np.degrees(i)

@@ -17,7 +17,7 @@ b_spectrum_path = os.path.join(os.path.dirname(__file__), os.pardir,
 #                                'data', 'transmission',
 #                                'smart_spectra_trappist_venus_10bar_b.trnst')
 
-path_dict = dict(b=b_spectrum_path,
+path_dict = dict(b=None,
                  c=None,
                  d=None,
                  e=None,
@@ -45,8 +45,6 @@ def transmission_spectrum_depths(planet):
     nirspec_wavelengths = nirspec_pixel_wavelengths()
 
     if path_dict[planet] is not None:
-        # wavelengths, depths = np.loadtxt(path_dict[planet], unpack=True,
-        #                                  skiprows=8)
         wavelengths, _, _, depths = np.loadtxt(path_dict[planet],
                                                skiprows=10, unpack=True)
 
